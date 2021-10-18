@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
   fp32_t y = convert_fp(b);
   fp32_t z = divide_fp(x,y);
   
+  /* show the current values */
   printf("x = %d\n", x);
   printf("y = %d\n", y);
   printf("z = %d\n\n", z);
