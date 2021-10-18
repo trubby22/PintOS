@@ -264,8 +264,9 @@ thread_unblock (struct thread *t)
 static void
 priority_list_add(struct thread *t)
 {
-  list_insert_ordered (&ready_list, &t->elem, &compare_threads, MORE);
-  if(compare_threads(&t->elem, &thread_current ()->elem, MORE))
+  enum comparator more = MORE;
+  list_insert_ordered (&ready_list, &t->elem, &compare_threads, &more);
+  if(compare_threads(&t->elem, &thread_current ()->elem, &more))
   {
     thread_yield();
   }

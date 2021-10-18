@@ -14,6 +14,15 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+enum comparator
+{
+  LESS,
+  LESSEQ,
+  EQUALS,
+  MOREEQ,
+  MORE
+};
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -116,6 +125,8 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+
+bool compare_threads(const struct list_elem *a, const struct list_elem *b, void *type);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
