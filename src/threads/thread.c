@@ -360,6 +360,35 @@ thread_get_priority (void)
   return thread_current ()->priority;
 }
 
+/*Compares threads based on their priority. type determines what comapartor is used */
+bool 
+compare_threads(const struct list_elem *a, const struct list_elem *b, void *type)
+{
+  enum comparator t = (enum comparator) type;
+  int8_t a_priority = list_entry(a, struct thread, elem)->priority;
+  int8_t b_priority = list_entry(b, struct thread, elem)->priority;
+  switch (t)
+  {
+  case LESS:
+    return a_priority < b_priority;
+  
+  case LESSEQ:
+    return a_priority <= b_priority;
+
+  case EQUALS:
+    return a_priority == b_priority;
+
+  case MOREEQ:
+    return a_priority >= b_priority;
+
+  case MORE:
+    return a_priority > b_priority;
+
+  default:
+    return false;    
+  }
+}
+
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice (int nice UNUSED) 
