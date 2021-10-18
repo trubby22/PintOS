@@ -346,6 +346,14 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
+/* donates the current thread's effective_priority to the thread given in the function call. */
+void
+thread_donate_priority(struct thread *target) 
+{
+  int new_priority = thread_current ()->effective_priority;
+  target->effective_priority = new_priority;
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
