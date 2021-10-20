@@ -423,8 +423,7 @@ thread_get_load_avg (void)
 void
 thread_set_load_avg (void) 
 {
-  load_avg = divide_int(load_avg, 60);
-  load_avg = multiply_int(load_avg, 59);
+  load_avg = multiply_fp(load_avg, divide_int(convert_fp(59), 60));
 
   int running_threads = 0;
   struct thread *t = thread_current();
