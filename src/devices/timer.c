@@ -228,7 +228,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
 
   // Update system load average
-  thread_set_load_avg();
+  if (ticks % TIMER_FREQ == 0) {
+    printf("%lld s\n", ticks / 100);
+    thread_set_load_avg();
+    printf("load_avg * 100 = %d\n", thread_get_load_avg());
+  }
 
   thread_tick ();
 }

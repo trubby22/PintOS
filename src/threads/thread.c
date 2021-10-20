@@ -95,6 +95,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  // might extract it to a function later to maintain the same level of abstraction
+  load_avg = 0;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -414,7 +416,7 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return multiply_int(load_avg, 100);
+  return convert_integer_n(multiply_int(load_avg, 100));
 }
 
 /* Updates the system load average. */
@@ -424,10 +426,15 @@ thread_set_load_avg (void)
   load_avg = divide_int(load_avg, 60);
   load_avg = multiply_int(load_avg, 59);
 
-  fp32_t snd_argument = convert_fp((int) list_size(&ready_list));
+  int running_threads = 0;
+  struct thread *t = thread_current();
+  if (strcmp(t->name, "idle") != 0) {
+    running_threads++;
+  }
+  fp32_t snd_argument = convert_fp((int) threads_ready() + running_threads);
   snd_argument = divide_int(snd_argument, 60);
   
-  load_avg += snd_argument;
+  load_avg = add_fp(load_avg, snd_argument);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
