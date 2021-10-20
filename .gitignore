@@ -23,3 +23,5 @@
 *.nav
 *.toc
 
+#ignore pintos-gdb (some changes were needed to use this file on Mac)
+src/utils/pintos-gdb
