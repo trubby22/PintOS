@@ -227,6 +227,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
   }
 
+  // Update system load average
+  thread_set_load_avg();
+
   thread_tick ();
 }
 
