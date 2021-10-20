@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "lib/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -58,6 +59,8 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-mlfqs". */
 bool thread_mlfqs;
+
+static fp32_t load_avg;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -361,55 +364,70 @@ thread_get_priority (void)
 }
 
 /*Compares threads based on their priority. type determines what comapartor is used */
-bool 
-compare_threads(const struct list_elem *a, const struct list_elem *b, void *type)
-{
-  enum comparator t = (enum comparator) type;
-  int8_t a_priority = list_entry(a, struct thread, elem)->priority;
-  int8_t b_priority = list_entry(b, struct thread, elem)->priority;
-  switch (t)
-  {
-  case LESS:
-    return a_priority < b_priority;
+// bool 
+// compare_threads(const struct list_elem *a, const struct list_elem *b, void *type)
+// {
+//   enum comparator t = (enum comparator) type;
+//   int8_t a_priority = list_entry(a, struct thread, elem)->priority;
+//   int8_t b_priority = list_entry(b, struct thread, elem)->priority;
+//   switch (t)
+//   {
+//   case LESS:
+//     return a_priority < b_priority;
   
-  case LESSEQ:
-    return a_priority <= b_priority;
+//   case LESSEQ:
+//     return a_priority <= b_priority;
 
-  case EQUALS:
-    return a_priority == b_priority;
+//   case EQUALS:
+//     return a_priority == b_priority;
 
-  case MOREEQ:
-    return a_priority >= b_priority;
+//   case MOREEQ:
+//     return a_priority >= b_priority;
 
-  case MORE:
-    return a_priority > b_priority;
+//   case MORE:
+//     return a_priority > b_priority;
 
-  default:
-    return false;    
-  }
-}
+//   default:
+//     return false;    
+//   }
+// }
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int new_nice UNUSED) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = new_nice;
+  // TODO
+  // or maybe should I use the thread_set_priority method here?
+  // thread_current()->priority = ...;
+  // compare thread's priority to the priorities in the list; if not maximum, yield
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return multiply_int(load_avg, 100);
+}
+
+/* Updates the system load average. */
+void
+thread_set_load_avg (void) 
+{
+  load_avg = divide_int(load_avg, 60);
+  load_avg = multiply_int(load_avg, 59);
+
+  fp32_t snd_argument = convert_fp((int) list_size(&ready_list));
+  snd_argument = divide_int(snd_argument, 60);
+  
+  load_avg += snd_argument;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
