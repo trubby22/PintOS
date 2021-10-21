@@ -229,9 +229,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   // Update system load average
   if (ticks % TIMER_FREQ == 0) {
-    printf("%lld s\n", ticks / 100);
-    thread_set_load_avg();
-    printf("load_avg * 100 = %d\n", thread_get_load_avg());
+    // printf("%lld s\n", ticks / 100);
+    thread_update_load_avg();
+    // printf("load_avg * 100 = %d\n", thread_get_load_avg());
+  }
+
+  // make a method for that?
+  // increment recent_cpu of current thread
+  fp32_t new_recent_cpu = thread_current()->recent_cpu;
+  new_recent_cpu = add_int(new_recent_cpu, 1);
+  thread_current()->recent_cpu = new_recent_cpu;
+
+  // Update recent_cpu for all threads
+  if (ticks % TIMER_FREQ == 0) {
+    thread_update_all_recent_cpus();
   }
 
   thread_tick ();

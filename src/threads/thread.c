@@ -196,6 +196,9 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+  /* Set recent_cpu of child to that of the parent. */
+  t->recent_cpu = (thread_current()->recent_cpu);
+
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
      member cannot be observed. */
@@ -421,9 +424,10 @@ thread_get_load_avg (void)
 
 /* Updates the system load average. */
 void
-thread_set_load_avg (void) 
+thread_update_load_avg (void) 
 {
   load_avg = multiply_fp(load_avg, divide_int(convert_fp(59), 60));
+  // load_avg = multiply_int(load_avg, 59);
 
   int running_threads = 0;
   struct thread *t = thread_current();
@@ -434,14 +438,46 @@ thread_set_load_avg (void)
   snd_argument = divide_int(snd_argument, 60);
   
   load_avg = add_fp(load_avg, snd_argument);
+  // load_avg = divide_int(add_fp(load_avg, snd_argument), 60);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return convert_integer_n(multiply_int((thread_current()->recent_cpu), 100));
+}
+
+/* Sets the thread's recent_cpu value. */
+void
+thread_set_recent_cpu (fp32_t new_recent_cpu) 
+{
+  thread_current()->recent_cpu = new_recent_cpu;
+}
+
+/* Updates recent_cpu value of the argument thread. */
+void
+thread_update_recent_cpu (struct thread *t) 
+{
+  fp32_t new_recent_cpu = t->recent_cpu;
+  int nice = t->nice;
+  fp32_t coefficient = load_avg;
+
+  coefficient = multiply_int(coefficient, 2);
+  coefficient = divide_fp(coefficient, add_int(coefficient, 1));
+  new_recent_cpu = multiply_fp(coefficient, new_recent_cpu);
+  new_recent_cpu = add_int(new_recent_cpu, nice);
+
+  t->recent_cpu = new_recent_cpu;
+}
+
+/* Updates recent_cpu value of all threads. */
+void thread_update_all_recent_cpus (void) {
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+      struct thread *t = list_entry(e, struct thread, allelem);
+      thread_update_recent_cpu(t);
+  }
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -530,6 +566,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->recent_cpu = 0;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
