@@ -28,6 +28,9 @@ static unsigned loops_per_tick;
 /* Holds a list of all the currently sleeping timers */
 static struct list sleeping_timers;
 
+/* List of threads running in the last 4 ticks */
+static struct list recent_threads;
+
 /* The sleeping timer structure used in the sleeping_timers list */
 struct sleeping_timer
   {
@@ -40,6 +43,7 @@ struct sleeping_timer
 /* The function definition used for the comparison of two sleeping_timer structures.
    This is used to sort the sleeping_timers list inside timer_sleep() */
 static bool compare_sleepers (const struct list_elem *a, const struct list_elem *b, UNUSED void *aux);
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -52,6 +56,9 @@ void
 timer_init (void) 
 {
   list_init(&sleeping_timers);
+  if (thread_mlfqs) {
+    list_init(&recent_threads);
+  }
 
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
@@ -74,6 +81,8 @@ timer_calibrate (void)
       loops_per_tick <<= 1;
       ASSERT (loops_per_tick != 0);
     }
+
+  printf("First loop is behind us\n");
 
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
@@ -208,6 +217,8 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  printf("Tick. Interrupt level: %s\n", intr_get_level());
+
   /* Checks if there are any timers waiting to wake up*/
   if (!list_empty(&sleeping_timers))
   {
@@ -227,28 +238,47 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
   }
 
-  // Update system load average
-  if (ticks % TIMER_FREQ == 0) {
-    // printf("%lld s\n", ticks / 100);
-    thread_update_load_avg();
-    // printf("load_avg * 100 = %d\n", thread_get_load_avg());
-  }
+  // The part below is used only with the BSD-style scheduler
+  if (thread_mlfqs) {
+    // Updates system load average every second
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_load_avg();
+    }
 
-  // make a method for that?
-  // increment recent_cpu of current thread
-  fp32_t new_recent_cpu = thread_current()->recent_cpu;
-  new_recent_cpu = add_int(new_recent_cpu, 1);
-  thread_current()->recent_cpu = new_recent_cpu;
+    // Increments recent_cpu of current thread every tick
+    thread_increment_recent_cpu();
 
-  // Update recent_cpu for all threads
-  if (ticks % TIMER_FREQ == 0) {
-    thread_update_all_recent_cpus();
-  }
+    // Updates recent_cpu for all threads every second
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_all_recent_cpus();
+    }
 
-  // Update priority for all threads
-  // would be better to use TIME_SLICE here
-  if (ticks % 4 == 0) {
-    thread_update_all_priorities();
+    printf("list_size(&recent_threads) before adding: %llu\n", list_size(&recent_threads));
+    // Records what threads have been running for the past 4 ticks
+    list_push_back(&recent_threads, &(thread_current()->recentelem));
+    printf("list_size(&recent_threads) after adding: %llu\n", list_size(&recent_threads));
+
+    // Updates priority for all threads every second
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_all_priorities();
+      // Clears recent_threads list
+      while (!list_empty (&recent_threads))
+      {
+        list_pop_front (&recent_threads);
+      }
+    }
+
+    printf("Before if-statement\n");
+    
+    /* Updates priority every 4 ticks for threads that have been 
+    running in the past 4 ticks.
+    Doesn't update at full seconds because then all threads' priorities are updated automatically by the code above */
+    if (ticks % TIME_SLICE == 0 && ticks % TIMER_FREQ != 0) {
+      printf("Before calling list_unique()\n");
+      list_unique(&recent_threads, NULL, &recent_list_less, NULL);
+      printf("After calling list_unique()\n");
+      thread_update_selected_priorities(&recent_threads);
+    }
   }
 
   thread_tick ();
