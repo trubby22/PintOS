@@ -266,12 +266,6 @@ priority_list_add(struct thread *t)
 {
   enum comparator more = MORE;
   list_insert_ordered (&ready_list, &t->elem, &compare_threads, &more);
-
-  if(compare_threads(&t->elem, &thread_current ()->elem, &more))
-  {
-    //thread_yield();
-    //intr_yield_on_return();
-  }
 }
 
 /* Returns the name of the running thread. */
@@ -368,17 +362,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-
-  if(list_empty(&ready_list))
-  {
-    return;
-  }
-
-  if(new_priority < list_entry(list_front(&ready_list), struct thread, elem)->priority)
-  {
-    thread_yield();
-    return;
-  }
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
