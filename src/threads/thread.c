@@ -382,23 +382,23 @@ compare_threads(const struct list_elem *a, const struct list_elem *b, void *type
 
   switch (t)
   {
-  case LESS:
-    return a_priority < b_priority;
-  
-  case LESSEQ:
-    return a_priority <= b_priority;
+    case LESS:
+      return a_priority < b_priority;
+    
+    case LESSEQ:
+      return a_priority <= b_priority;
 
-  case EQUALS:
-    return a_priority == b_priority;
+    case EQUALS:
+      return a_priority == b_priority;
 
-  case MOREEQ:
-    return a_priority >= b_priority;
+    case MOREEQ:
+      return a_priority >= b_priority;
 
-  case MORE:
-    return a_priority > b_priority;
+    case MORE:
+      return a_priority > b_priority;
 
-  default:
-    return false;    
+    default:
+      return false;    
   }
 }
 
