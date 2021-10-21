@@ -197,7 +197,15 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
 
   /* Set recent_cpu of child to that of the parent. */
+  t->nice = (thread_current()->nice);
+
+  /* Set recent_cpu of child to that of the parent. */
   t->recent_cpu = (thread_current()->recent_cpu);
+
+  // recalculate thread priority if the thread inherited nice and recent_cpu from parent thread
+  if (thread_mlfqs) {
+    thread_update_priority(t);
+  }
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -399,7 +407,7 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int new_nice UNUSED) 
+thread_set_nice (int new_nice) 
 {
   thread_current()->nice = new_nice;
   // TODO
@@ -477,6 +485,35 @@ void thread_update_all_recent_cpus (void) {
   for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
       struct thread *t = list_entry(e, struct thread, allelem);
       thread_update_recent_cpu(t);
+  }
+}
+
+/* Updates priority of argument thread. */
+void thread_update_priority (struct thread *t) {
+  int new_priority;
+  fp32_t recent_cpu = t->recent_cpu;
+  int nice = t->nice;
+
+  recent_cpu = divide_int(recent_cpu, 4);
+  nice *= 2;
+  new_priority = PRI_MAX - convert_integer_z(recent_cpu) - nice;
+
+  // might think of using a different algorithm for these cases in the future
+  if (new_priority < PRI_MIN) {
+    new_priority = PRI_MIN;
+  } else if (new_priority > PRI_MAX) {
+    new_priority = PRI_MAX;
+  }
+
+  t->priority = new_priority;
+}
+
+/* Updates priority of all threads. */
+void thread_update_all_priorities (void) {
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+      struct thread *t = list_entry(e, struct thread, allelem);
+      thread_update_priority(t);
   }
 }
 
@@ -565,8 +602,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  // might put the following assignment into an if-statement
   t->priority = priority;
+  t->nice = 0;
   t->recent_cpu = 0;
+  // calculates initial thread priority
+  if (thread_mlfqs) {
+    thread_update_priority(t);
+  }
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();

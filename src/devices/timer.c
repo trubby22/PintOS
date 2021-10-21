@@ -245,6 +245,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
     thread_update_all_recent_cpus();
   }
 
+  // Update priority for all threads
+  // would be better to use TIME_SLICE here
+  if (ticks % 4 == 0) {
+    thread_update_all_priorities();
+  }
+
   thread_tick ();
 }
 

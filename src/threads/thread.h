@@ -24,6 +24,9 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+#define NICE_MIN -20                    /* Lowest niceness. */
+#define NICE_MAX 20                    /* Highest niceness. */
+
 
 /* A kernel thread or user process.
 
@@ -145,5 +148,7 @@ void thread_update_recent_cpu (struct thread *);
 void thread_update_all_recent_cpus (void);
 int thread_get_load_avg (void);
 void thread_update_load_avg (void);
+void thread_update_priority (struct thread *);
+void thread_update_all_priorities (void);
 
 #endif /* threads/thread.h */
