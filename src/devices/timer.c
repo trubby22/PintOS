@@ -76,8 +76,6 @@ timer_calibrate (void)
       ASSERT (loops_per_tick != 0);
     }
 
-  printf("First loop is behind us\n");
-
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
   for (test_bit = high_bit >> 1; test_bit != high_bit >> 10; test_bit >>= 1)
