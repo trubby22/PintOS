@@ -28,9 +28,6 @@ static unsigned loops_per_tick;
 /* Holds a list of all the currently sleeping timers */
 static struct list sleeping_timers;
 
-/* List of threads running in the last 4 ticks */
-static struct list recent_threads;
-
 /* The sleeping timer structure used in the sleeping_timers list */
 struct sleeping_timer
   {
@@ -56,9 +53,6 @@ void
 timer_init (void) 
 {
   list_init(&sleeping_timers);
-  if (thread_mlfqs) {
-    list_init(&recent_threads);
-  }
 
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
@@ -217,7 +211,6 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  printf("Tick. Interrupt level: %s\n", intr_get_level());
 
   /* Checks if there are any timers waiting to wake up*/
   if (!list_empty(&sleeping_timers))
@@ -253,31 +246,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
       thread_update_all_recent_cpus();
     }
 
-    printf("list_size(&recent_threads) before adding: %llu\n", list_size(&recent_threads));
-    // Records what threads have been running for the past 4 ticks
-    list_push_back(&recent_threads, &(thread_current()->recentelem));
-    printf("list_size(&recent_threads) after adding: %llu\n", list_size(&recent_threads));
-
     // Updates priority for all threads every second
-    if (ticks % TIMER_FREQ == 0) {
+    if (ticks % TIME_SLICE == 0) {
       thread_update_all_priorities();
-      // Clears recent_threads list
-      while (!list_empty (&recent_threads))
-      {
-        list_pop_front (&recent_threads);
-      }
-    }
-
-    printf("Before if-statement\n");
-    
-    /* Updates priority every 4 ticks for threads that have been 
-    running in the past 4 ticks.
-    Doesn't update at full seconds because then all threads' priorities are updated automatically by the code above */
-    if (ticks % TIME_SLICE == 0 && ticks % TIMER_FREQ != 0) {
-      printf("Before calling list_unique()\n");
-      list_unique(&recent_threads, NULL, &recent_list_less, NULL);
-      printf("After calling list_unique()\n");
-      thread_update_selected_priorities(&recent_threads);
     }
   }
 

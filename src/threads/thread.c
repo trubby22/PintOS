@@ -73,7 +73,8 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-bool recent_list_less (const struct list_elem *a, const struct list_elem *b, void *aux);
+// TODO: uncomment the line below later on
+// bool recent_list_less (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -249,7 +250,6 @@ thread_block (void)
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
-  printf("Scheduling ...\n");
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
@@ -324,7 +324,6 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  printf("Scheduling ...\n");
   list_remove (&thread_current()->allelem);
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -342,7 +341,6 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  printf("Scheduling ...\n");
   if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
@@ -561,17 +559,6 @@ void thread_update_all_priorities (void) {
       thread_update_priority(t);
   }
 }
-
-/* Updates priority of threads in the argument list and clears this list. */
-void thread_update_selected_priorities (struct list *recent_list) {
-  ASSERT(thread_mlfqs);
-  
-  struct list_elem *e;
-  for (e = list_begin (recent_list); e != list_end (recent_list); e = list_remove (e)) {
-      struct thread *t = list_entry(e, struct thread, recentelem);
-      thread_update_priority(t);
-  }
-}
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -658,7 +645,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  // might put the following assignment into an if-statement
   t->priority = priority;
 
   if (thread_mlfqs) {
@@ -788,13 +774,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-// Compares two threads according to their tid
-bool recent_list_less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED) {
-  ASSERT(thread_mlfqs);
-
-  struct thread *ta = list_entry(a, struct thread, recentelem);
-  struct thread *tb = list_entry(b, struct thread, recentelem);
-
-  return (ta->tid) < (tb->tid);
-}

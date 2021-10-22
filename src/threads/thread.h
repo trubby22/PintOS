@@ -98,7 +98,6 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     int nice;                           /* Thread's nice value */
     fp32_t recent_cpu;                  /* Thread's recent cpu value */
-    struct list_elem recentelem;        /* List elem for recent threads list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -157,9 +156,5 @@ int thread_get_load_avg (void);
 void thread_update_load_avg (void);
 void thread_update_priority (struct thread *);
 void thread_update_all_priorities (void);
-void thread_update_selected_priorities (struct list *);
-
-// Compares threads based on their tid
-bool recent_list_less (const struct list_elem *a, const struct list_elem *b, void *aux);
 
 #endif /* threads/thread.h */
