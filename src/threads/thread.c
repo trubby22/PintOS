@@ -411,9 +411,18 @@ void
 thread_set_nice (int new_nice) 
 {
   struct thread *t = thread_current();
-  t->nice = new_nice;
-  thread_update_priority(t);
-  thread_yield();
+  if (new_nice < NICE_MIN) {
+    new_nice = NICE_MIN;
+  } else if (new_nice > NICE_MAX) {
+    new_nice = NICE_MAX;
+  }
+  bool same = (t->nice == new_nice);
+
+  if (!same) {
+    t->nice = new_nice;
+    thread_update_priority(t);
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's nice value. */
