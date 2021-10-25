@@ -126,7 +126,9 @@ void thread_print_stats (void);
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
 
-bool compare_threads(const struct list_elem *a, const struct list_elem *b, void *type);
+bool compare_threads(const struct list_elem *a, 
+                     const struct list_elem *b, void *type);
+void priority_list_add(struct list* priority_list,struct thread *t);
 
 void thread_block (void);
 void thread_unblock (struct thread *);

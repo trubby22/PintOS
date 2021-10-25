@@ -71,7 +71,6 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-static void priority_list_add(struct thread *t);
 static struct thread *priority_list_head(void);
 
 static struct thread *priority_list_head(void) {
@@ -260,18 +259,18 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  priority_list_add(t);
+  priority_list_add(&ready_list, t);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
 
 /* Adds a thread to the ready list, sorting it based on it's priority.
    Interrupts are turned off entering this function. */
-static void
-priority_list_add(struct thread *t)
+void
+priority_list_add(struct list *priority_list, struct thread *t)
 {
   enum comparator more = MORE;
-  list_insert_ordered (&ready_list, &t->elem, &compare_threads, &more);
+  list_insert_ordered (priority_list, &t->elem, &compare_threads, &more);
 }
 
 /* Returns the name of the running thread. */
@@ -340,7 +339,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread)
-    priority_list_add(cur);
+    priority_list_add(&ready_list, cur);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
