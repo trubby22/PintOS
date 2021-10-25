@@ -72,6 +72,11 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
 static void priority_list_add(struct thread *t);
+static struct thread *priority_list_head(void);
+
+static struct thread *priority_list_head(void) {
+  return list_entry(list_front(&ready_list), struct thread, elem);
+}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -217,6 +222,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield ();
 
   return tid;
 }
