@@ -362,6 +362,8 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  enum comparator c = MORE;
+  list_sort(&ready_list, compare_threads, &c);
   thread_yield();
 }
 
