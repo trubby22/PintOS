@@ -108,6 +108,15 @@ sema_try_down (struct semaphore *sema)
 void
 sema_up (struct semaphore *sema) 
 {
+  sema_up_no_yield(sema);
+
+  if (!intr_context())
+    thread_yield ();
+}
+
+void
+sema_up_no_yield (struct semaphore *sema) 
+{
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
@@ -116,12 +125,12 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) {
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
-    if (!intr_context)
-      thread_yield ();
   }
   sema->value++;
   intr_set_level (old_level);
 }
+
+
 
 static void sema_test_helper (void *sema_);
 
@@ -324,6 +333,21 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
                           struct semaphore_elem, elem)->semaphore);
 }
 
+void
+cond_signal_x (struct condition *cond, struct lock *lock UNUSED) 
+{
+  ASSERT (cond != NULL);
+  ASSERT (lock != NULL);
+  ASSERT (!intr_context ());
+  ASSERT (lock_held_by_current_thread (lock));
+
+  if (!list_empty (&cond->waiters)) 
+    sema_up_no_yield (&list_entry (list_pop_front (&cond->waiters),
+                          struct semaphore_elem, elem)->semaphore);
+}
+
+
+
 /* Wakes up all threads, if any, waiting on COND (protected by
    LOCK).  LOCK must be held before calling this function.
 
@@ -337,5 +361,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   ASSERT (lock != NULL);
 
   while (!list_empty (&cond->waiters))
-    cond_signal (cond, lock);
+    cond_signal_x (cond, lock);
+
+  thread_yield();  
 }

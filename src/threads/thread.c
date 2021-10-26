@@ -614,6 +614,8 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  enum comparator c = MORE;
+  list_sort(&ready_list,&compare_threads,&c);
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
