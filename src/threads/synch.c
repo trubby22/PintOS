@@ -265,6 +265,21 @@ struct semaphore_elem
     struct semaphore semaphore;         /* This semaphore. */
   };
 
+
+bool sema_compare(const struct list_elem *a, const struct list_elem *b, void *type)
+  {
+  struct semaphore *a_sema = &list_entry(a, struct semaphore_elem, elem)->semaphore;
+  struct semaphore *b_sema = &list_entry(b, struct semaphore_elem, elem)->semaphore;
+
+  struct list a_waiters = a_sema -> waiters;
+  struct list b_waiters = b_sema -> waiters;
+
+  struct thread *a_thread = priority_list_head(&a_waiters);
+  struct thread *b_thread = priority_list_head(&b_waiters);
+
+  return compare_threads(&a_thread->elem, &b_thread->elem, type);
+}
+
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
    code to receive the signal and act upon it. */
@@ -307,7 +322,8 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  enum comparator more = MORE;
+  list_insert_ordered(&cond->waiters, &waiter.elem, &sema_compare, &more);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
