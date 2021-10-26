@@ -197,7 +197,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
   // Donates priority to lock holder; adds priority to the list in struct thread and in struct lock
-  if (lock->holder)
+  if (lock->holder != NULL)
     thread_donate_priority(lock->holder, lock);
     
   sema_down (&lock->semaphore);
@@ -219,7 +219,7 @@ lock_try_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   // Should the donation happen here too or just in lock_acquire()?
-  if (lock->holder)
+  if (lock->holder != NULL)
     thread_donate_priority(lock->holder, lock);
 
   success = sema_try_down (&lock->semaphore);

@@ -364,22 +364,25 @@ thread_donate_priority (struct thread *target, struct lock *lock)
   thread_calculate_priority(target);
 }
 
+// Gives back priorities associated with a lock
 void thread_give_back_priority (struct lock *lock)
 {
   struct thread *t = thread_current();
-  struct list lock_priorities = lock->donated_priorities;
+  struct list *lock_priorities = &lock->donated_priorities;
   
   struct list_elem *e;
   
-  // Removes priority_donation from the list in struct thread and in struct lock
-  for (e = list_begin (&lock_priorities); e != list_end (&lock_priorities); e = list_remove (e))
-  {
-    struct priority_donation *pd = list_entry (e, struct priority_donation, lock_elem);
-    list_remove(&pd->thread_elem);
-  }
+  if (!list_empty(lock_priorities)) {
+    // Removes priority_donation from the list in struct thread and in struct lock
+    for (e = list_begin (lock_priorities); e != list_end (lock_priorities); e = list_remove (e))
+    {
+      struct priority_donation *pd = list_entry (e, struct priority_donation, lock_elem);
+      list_remove(&pd->thread_elem);
+    }
 
-  // Calculates thread's new effective priority after giving back the donation
-  thread_calculate_priority(t);
+    // Calculates thread's new effective priority after giving back the donation
+    thread_calculate_priority(t);
+  }
 }
 
 // Compares thread_elems of struct priority_donation on their priorities
