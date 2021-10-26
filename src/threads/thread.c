@@ -70,6 +70,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+bool list_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -354,10 +355,10 @@ thread_donate_priority (struct thread *target, struct lock *lock)
 
   // Adds struct priority to priorities list in struct thread
   struct priority_donation donation;
-  donation->priority = new_priority;
+  donation.priority = new_priority;
 
-  list_insert_ordered(&target->received_priorities, &donation->thread_elem, &list_less_priority, NULL);
-  list_push_back(&lock->donated_priorities, &donation->lock_elem);
+  list_insert_ordered(&target->received_priorities, &donation.thread_elem, &list_less_priority, NULL);
+  list_push_back(&lock->donated_priorities, &donation.lock_elem);
 
   // Calculates thread's new effective priority after the donation
   thread_calculate_priority(target);
@@ -411,11 +412,12 @@ thread_get_priority (void)
 // Calculates thread's effective_priority based on the contents of the received_priorities list and the base priority; then yields thread
 void thread_calculate_priority (struct thread *t)
 {
-  struct list priorities = &t->received_priorities;
-  int old_priority = t->effective_priority;
-  if (!list_empty(priorities)) {
+  struct list priorities = t->received_priorities;
+  if (!list_empty(&priorities)) {
     // Sets the effective_priority to the max elem of priorities list
-    t->effective_priority = list_back(priorities);
+    struct list_elem *pri_elem = list_back(&priorities);
+    struct priority_donation *pd = list_entry(pri_elem, struct priority_donation, thread_elem);
+    t->effective_priority = pd->priority;
   } else {
     t->effective_priority = t->priority;
   }
