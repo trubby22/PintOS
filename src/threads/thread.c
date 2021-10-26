@@ -346,12 +346,48 @@ thread_foreach (thread_action_func *func, void *aux)
     }
 }
 
-/* donates the current thread's effective_priority to the thread given in the function call. */
+/* Donates the current thread's effective_priority to the thread given in the function call. */
 void
-thread_donate_priority(struct thread *target) 
+thread_donate_priority (struct thread *target, struct lock *lock) 
 {
   int new_priority = thread_current ()->effective_priority;
-  target->effective_priority = new_priority;
+
+  // Adds struct priority to priorities list in struct thread
+  struct priority_donation donation;
+  donation->priority = new_priority;
+
+  list_insert_ordered(&target->received_priorities, &donation->thread_elem, &list_less_priority, NULL);
+  list_push_back(&lock->donated_priorities, &donation->lock_elem);
+
+  // Calculates thread's new effective priority after the donation
+  thread_calculate_priority(target);
+}
+
+void thread_give_back_priority (struct lock *lock)
+{
+  struct thread *t = thread_current();
+  struct list lock_priorities = lock->donated_priorities;
+  
+  struct list_elem *e;
+  
+  // Removes priority_donation from the list in struct thread and in struct lock
+  for (e = list_begin (&lock_priorities); e != list_end (&lock_priorities); e = list_remove (e))
+  {
+    struct priority_donation *pd = list_entry (e, struct priority_donation, lock_elem);
+    list_remove(&pd->thread_elem);
+  }
+
+  // Calculates thread's new effective priority after giving back the donation
+  thread_calculate_priority(t);
+}
+
+// Compares thread_elems of struct priority_donation on their priorities
+bool list_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct priority_donation *pda = list_entry(a, struct priority_donation, thread_elem);
+  struct priority_donation *pdb = list_entry(b, struct priority_donation, thread_elem);
+
+  return pda->priority < pdb->priority;
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -370,6 +406,22 @@ thread_get_priority (void)
   if(t->priority > t->effective_priority)
     return t->priority;
   return t->effective_priority;
+}
+
+// Calculates thread's effective_priority based on the contents of the received_priorities list and the base priority; then yields thread
+void thread_calculate_priority (struct thread *t)
+{
+  struct list priorities = &t->received_priorities;
+  int old_priority = t->effective_priority;
+  if (!list_empty(priorities)) {
+    // Sets the effective_priority to the max elem of priorities list
+    t->effective_priority = list_back(priorities);
+  } else {
+    t->effective_priority = t->priority;
+  }
+
+  // Yields thread because the current thread might no longer have the highest priority
+  thread_yield();
 }
 
 /* Sets the current thread's nice value to NICE. */

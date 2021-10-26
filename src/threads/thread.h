@@ -104,6 +104,14 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+// Struct used for stroing priority donations in lists
+struct priority_donation
+{
+  struct list_elem thread_elem; /* For adding to list in struct thread */
+  struct list_elem lock_elem; /* For adding to list in struct lock */
+  int priority; /* Stores donated priority */
+}
+
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "mlfqs". */
@@ -133,9 +141,11 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
-void thread_donate_priority(struct thread *);
+void thread_donate_priority(struct thread *, struct lock *);
+void thread_give_back_priority (struct lock *lock);
 int thread_get_priority(void);
 void thread_set_priority (int);
+void thread_calculate_priority (struct thread *);
 
 int thread_get_nice (void);
 void thread_set_nice (int);
