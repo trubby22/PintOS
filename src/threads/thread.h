@@ -129,6 +129,7 @@ tid_t thread_create (const char *name, int priority, thread_func *, void *);
 bool compare_threads(const struct list_elem *a, 
                      const struct list_elem *b, void *type);
 void priority_list_add(struct list* priority_list,struct thread *t);
+struct thread *priority_list_head(struct list *priority_list);
 
 void thread_block (void);
 void thread_unblock (struct thread *);

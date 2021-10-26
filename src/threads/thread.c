@@ -71,10 +71,8 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
-static struct thread *priority_list_head(void);
-
-static struct thread *priority_list_head(void) {
-  return list_entry(list_front(&ready_list), struct thread, elem);
+struct thread *priority_list_head(struct list *priority_list) {
+  return list_entry(list_front(priority_list), struct thread, elem);
 }
 
 /* Initializes the threading system by transforming the code
