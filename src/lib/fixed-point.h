@@ -25,7 +25,7 @@ fp32_t divide_fp(fp32_t x, fp32_t y);
 /*Aritmetic functions with 1 fp number */
 fp32_t add_int(fp32_t x, int32_t n);
 fp32_t subtract_int(fp32_t x, int32_t n);
-fp32_t multiply_int(fp32_t x, int32_t n);
+fp32_t multiply_int(fp32_t x, int32_t n;
 fp32_t divide_int(fp32_t x, int32_t n);
 
 /* To be removed once integrated into pintos/
