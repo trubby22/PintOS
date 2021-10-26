@@ -31,7 +31,7 @@ static struct list sleeping_timers;
 /* The sleeping timer structure used in the sleeping_timers list */
 struct sleeping_timer
   {
-    struct semaphore* sema; //The sleeping timer's semaphore
+    struct semaphore* sema; //The sleeping timer's lock
     int64_t continue_tick; //The tick at which the timer should continue
 
     struct list_elem item; //The list element field used by Pintos' lists
