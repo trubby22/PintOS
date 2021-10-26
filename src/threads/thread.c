@@ -361,11 +361,15 @@ thread_set_priority (int new_priority)
   thread_current ()->priority = new_priority;
 }
 
-/* Returns the current thread's priority. */
+/* Returns the current thread's effective priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  struct thread *t = thread_current ();
+
+  if(t->priority > t->effective_priority)
+    return t->priority;
+  return t->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
