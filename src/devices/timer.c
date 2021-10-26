@@ -40,6 +40,7 @@ struct sleeping_timer
 /* The function definition used for the comparison of two sleeping_timer structures.
    This is used to sort the sleeping_timers list inside timer_sleep() */
 static bool compare_sleepers (const struct list_elem *a, const struct list_elem *b, UNUSED void *aux);
+
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -208,6 +209,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+
   /* Checks if there are any timers waiting to wake up*/
   if (!list_empty(&sleeping_timers))
   {
@@ -224,6 +226,27 @@ timer_interrupt (struct intr_frame *args UNUSED)
         break;
       }
       front = list_entry(list_front(&sleeping_timers), struct sleeping_timer, item);
+    }
+  }
+
+  // The part below is used only with the BSD-style scheduler
+  if (thread_mlfqs) {
+    // Updates system load average every second
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_load_avg();
+    }
+
+    // Increments recent_cpu of current thread every tick
+    thread_increment_recent_cpu();
+
+    // Updates recent_cpu for all threads every second
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_all_recent_cpus();
+    }
+
+    // Updates priority for all threads every second
+    if (ticks % TIME_SLICE == 0) {
+      thread_update_all_priorities();
     }
   }
 

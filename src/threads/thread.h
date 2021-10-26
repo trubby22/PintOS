@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "lib/fixed-point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -32,6 +33,12 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+#define NICE_MIN -20                    /* Lowest niceness. */
+#define NICE_MAX 20                    /* Highest niceness. */
+
+/* Scheduling. */
+#define TIME_SLICE 4            /* # of timer ticks to give each thread. */
+
 
 /* A kernel thread or user process.
 
@@ -98,6 +105,8 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+    int nice;                           /* Thread's nice value */
+    fp32_t recent_cpu;                  /* Thread's recent cpu value */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -148,9 +157,18 @@ void thread_foreach (thread_action_func *, void *);
 int thread_get_priority (void);
 void thread_set_priority (int);
 
+// Functions used for BSD-style scheduler
 int thread_get_nice (void);
 void thread_set_nice (int);
+fp32_t thread_fp_get_recent_cpu (void);
 int thread_get_recent_cpu (void);
+void thread_set_recent_cpu (fp32_t);
+void thread_increment_recent_cpu (void);
+void thread_update_recent_cpu (struct thread *);
+void thread_update_all_recent_cpus (void);
 int thread_get_load_avg (void);
+void thread_update_load_avg (void);
+void thread_update_priority (struct thread *);
+void thread_update_all_priorities (void);
 
 #endif /* threads/thread.h */
