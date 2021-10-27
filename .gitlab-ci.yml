@@ -1,9 +1,0 @@
-image: gcc
-
-syntax-check:
-  stage: test
-  script:
-    - cd src/devices && gcc *.c -pedantic -fsyntax-only
-    - cd src/devices/build && gcc *.c -pedantic -fsyntax-only
-    - cd src/threads && gcc *.c -pedantic -fsyntax-only
-    - cd src/threads/build && gcc *.c -pedantic -fsyntax-only
