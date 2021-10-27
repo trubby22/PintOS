@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 #include "lib/fixed-point.h"
 
 /* States in a thread's life cycle. */
@@ -14,6 +15,15 @@ enum thread_status
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING        /* About to be destroyed. */
   };
+
+enum comparator
+{
+   LESS,
+   LESSEQ,
+   EQUALS,
+   MOREEQ,
+   MORE
+};
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -26,10 +36,6 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 #define NICE_MIN -20                    /* Lowest niceness. */
 #define NICE_MAX 20                    /* Highest niceness. */
-
-/* Scheduling. */
-#define TIME_SLICE 4            /* # of timer ticks to give each thread. */
-
 
 /* A kernel thread or user process.
 
@@ -95,9 +101,11 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
+    int effective_priority;             /* Priority after donations */
     int nice;                           /* Thread's nice value */
     fp32_t recent_cpu;                  /* Thread's recent cpu value */
+    struct list received_priorities;    /* List of received priorities */
+    struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -116,6 +124,14 @@ struct thread
    Controlled by kernel command-line option "mlfqs". */
 extern bool thread_mlfqs;
 
+// Struct used for stroing priority donations in lists
+struct priority_donation
+{
+  struct list_elem thread_elem; /* For adding to list in struct thread */
+  struct list_elem lock_elem; /* For adding to list in struct lock */
+  int priority; /* Stores donated priority */
+};
+
 void thread_init (void);
 void thread_start (void);
 size_t threads_ready(void);
@@ -125,6 +141,7 @@ void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
 tid_t thread_create (const char *name, int priority, thread_func *, void *);
+bool compare_threads(const struct list_elem *, const struct list_elem *, void *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
@@ -140,8 +157,12 @@ void thread_yield (void);
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
-int thread_get_priority (void);
+void thread_donate_priority(struct thread *, struct lock *);
+void thread_give_back_priority (struct lock *);
+
+int thread_get_priority(void);
 void thread_set_priority (int);
+void thread_calculate_priority (struct thread *);
 
 // Functions used for BSD-style scheduler
 int thread_get_nice (void);
@@ -156,5 +177,6 @@ int thread_get_load_avg (void);
 void thread_update_load_avg (void);
 void thread_update_priority (struct thread *);
 void thread_update_all_priorities (void);
+
 
 #endif /* threads/thread.h */
