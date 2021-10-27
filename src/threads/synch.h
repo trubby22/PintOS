@@ -11,10 +11,14 @@ struct semaphore
     struct list waiters;        /* List of waiting threads. */
   };
 
+bool 
+sema_compare(const struct list_elem *a, const struct list_elem *b, void *type);
+
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
+void sema_up_no_yield (struct semaphore *sema);
 void sema_self_test (void);
 
 /* Lock. */
@@ -39,6 +43,7 @@ struct condition
 void cond_init (struct condition *);
 void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
+void cond_signal_prime (struct condition *cond, struct lock *lock, bool yield);
 void cond_broadcast (struct condition *, struct lock *);
 
 /* Optimization barrier.
