@@ -398,7 +398,9 @@ bool list_less_priority (const struct list_elem *a, const struct list_elem *b, v
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *t = thread_current();
+  t->priority = new_priority;
+  thread_calculate_priority(t);
 }
 
 /* Returns the current thread's effective priority. */
@@ -416,11 +418,17 @@ thread_get_priority (void)
 void thread_calculate_priority (struct thread *t)
 {
   struct list priorities = t->received_priorities;
+  int max_priority = 0;
   if (!list_empty(&priorities)) {
     // Sets the effective_priority to the max elem of priorities list
     struct list_elem *pri_elem = list_back(&priorities);
     struct priority_donation *pd = list_entry(pri_elem, struct priority_donation, thread_elem);
-    t->effective_priority = pd->priority;
+    max_priority = pd->priority;
+  }
+
+  // Sets effective priority to the higher of: (1) max of received priorities, (2) base priority
+  if (max_priority > t->priority) {
+    t->effective_priority = max_priority;
   } else {
     t->effective_priority = t->priority;
   }
