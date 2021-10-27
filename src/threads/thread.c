@@ -72,6 +72,10 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 bool list_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 
+struct thread *priority_list_head(struct list *priority_list) {
+  return list_entry(list_front(priority_list), struct thread, elem);
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -258,6 +262,15 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
+/* Adds a thread to the ready list, sorting it based on it's priority.
+   Interrupts are turned off entering this function. */
+void
+priority_list_add(struct list *priority_list, struct thread *t)
+{
+  enum comparator more = MORE;
+  list_insert_ordered (priority_list, &t->elem, &compare_threads, &more);
+}
+
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
@@ -400,7 +413,11 @@ thread_set_priority (int new_priority)
 {
   struct thread *t = thread_current();
   t->priority = new_priority;
+  enum comparator c = MORE;
+  list_sort(&ready_list, compare_threads, &c);
+  // Isn't it redundant?
   thread_calculate_priority(t);
+  thread_yield();
 }
 
 /* Returns the current thread's effective priority. */
@@ -412,6 +429,36 @@ thread_get_priority (void)
   if(t->priority > t->effective_priority)
     return t->priority;
   return t->effective_priority;
+}
+
+/*Compares threads based on their priority. type determines what comapartor is used */
+bool 
+compare_threads(const struct list_elem *a, const struct list_elem *b, void *type)
+{
+  enum comparator t = *((enum comparator*) type);
+  int8_t a_priority = list_entry(a, struct thread, elem)->priority;
+  int8_t b_priority = list_entry(b, struct thread, elem)->priority;
+
+  switch (t)
+  {
+    case LESS:
+      return a_priority < b_priority;
+    
+    case LESSEQ:
+      return a_priority <= b_priority;
+
+    case EQUALS:
+      return a_priority == b_priority;
+
+    case MOREEQ:
+      return a_priority >= b_priority;
+
+    case MORE:
+      return a_priority > b_priority;
+
+    default:
+      return false;    
+  }
 }
 
 // Calculates thread's effective_priority based on the contents of the received_priorities list and the base priority; then yields thread
@@ -646,6 +693,8 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  enum comparator c = MORE;
+  list_sort(&ready_list,&compare_threads,&c);
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
