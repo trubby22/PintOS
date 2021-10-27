@@ -68,8 +68,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
-      thread_block ();
+      priority_list_add (&sema->waiters, thread_current ());
+      thread_block();
     }
   sema->value--;
   intr_set_level (old_level);
@@ -108,6 +108,15 @@ sema_try_down (struct semaphore *sema)
 void
 sema_up (struct semaphore *sema) 
 {
+  sema_up_no_yield(sema);
+
+  if (!intr_context())
+    thread_yield ();
+}
+
+void
+sema_up_no_yield (struct semaphore *sema) 
+{
   enum intr_level old_level;
 
   ASSERT (sema != NULL);
@@ -116,7 +125,7 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) 
   {
     enum comparator less = LESS;
-    struct list_elem *elem = list_max(&sema->waiters,&compare_threads,&less);
+    struct list_elem *elem = list_max(&sema->waiters,compare_threads,&less);
     list_remove(elem);
 
     thread_unblock (list_entry(elem, struct thread, elem));
@@ -326,7 +335,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  enum comparator more = MORE;
+  enum comparator more = LESSEQ;
   list_insert_ordered(&cond->waiters, &waiter.elem, sema_compare, &more);
   lock_release (lock);
   sema_down (&waiter.semaphore);
