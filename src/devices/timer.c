@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -24,6 +25,21 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
+/* Holds a list of all the currently sleeping timers */
+static struct list sleeping_timers;
+
+/* The sleeping timer structure used in the sleeping_timers list */
+struct sleeping_timer
+  {
+    struct semaphore* sema; //The sleeping timer's semaphore
+    int64_t continue_tick; //The tick at which the timer should continue
+
+    struct list_elem item; //The list element field used by Pintos' lists
+  };
+
+/* The function definition used for the comparison of two sleeping_timer structures.
+   This is used to sort the sleeping_timers list inside timer_sleep() */
+static bool compare_sleepers (const struct list_elem *a, const struct list_elem *b, UNUSED void *aux);
 static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
@@ -35,6 +51,8 @@ static void real_time_delay (int64_t num, int32_t denom);
 void
 timer_init (void) 
 {
+  list_init(&sleeping_timers);
+
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -92,8 +110,27 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  
+  struct semaphore new_sema;
+  sema_init(&new_sema, 0);
+
+  struct sleeping_timer sleeper;
+  sleeper.continue_tick = start + ticks;
+  sleeper.sema =  &new_sema;
+
+  list_insert_ordered(&sleeping_timers, &sleeper.item, &compare_sleepers, NULL);
+
+  sema_down(sleeper.sema);
+}
+
+/* Returns true if sleeping timer b has a greater continue tick than a.
+   This is used to sort the sleeping_timers list inside timer_sleep(),
+   keeping the "closetest to waking up" timer at the front of the list */
+static bool compare_sleepers (const struct list_elem *a, 
+             const struct list_elem *b, UNUSED void *aux)
+{
+  return list_entry(b, struct sleeping_timer, item)->continue_tick >
+         list_entry(a, struct sleeping_timer, item)->continue_tick;
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -171,6 +208,25 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  /* Checks if there are any timers waiting to wake up*/
+  if (!list_empty(&sleeping_timers))
+  {
+    struct sleeping_timer* front;
+    front = list_entry(list_front(&sleeping_timers), struct sleeping_timer, item);
+
+    /* Checks if the next timer should be woken up*/
+    while (front->continue_tick <= ticks)
+    {
+      sema_up(front->sema);
+      list_pop_front(&sleeping_timers);
+      if (list_empty(&sleeping_timers))
+      {
+        break;
+      }
+      front = list_entry(list_front(&sleeping_timers), struct sleeping_timer, item);
+    }
+  }
+
   thread_tick ();
 }
 
