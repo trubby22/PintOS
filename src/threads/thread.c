@@ -385,8 +385,9 @@ thread_donate_priority (struct thread *target, struct lock *lock)
 {
   int new_priority = thread_current ()->effective_priority;
 
-  // Adds struct priority to priorities list in struct thread
-  // I should probably get rid of that struct creation here
+  if (new_priority <= target->effective_priority) {
+    return;
+  }
   struct priority_donation *donation = malloc(sizeof(struct priority_donation));
   // TODO: add a free for donation
   donation->priority = new_priority;
@@ -396,6 +397,7 @@ thread_donate_priority (struct thread *target, struct lock *lock)
 
   // Calculates thread's new effective priority after the donation
   thread_calculate_priority(target);
+  thread_yield();
 }
 
 // Gives back priorities associated with a lock
@@ -418,6 +420,7 @@ void thread_give_back_priority (struct lock *lock)
 
     // Calculates thread's new effective priority after giving back the donation
     thread_calculate_priority(t);
+    thread_yield();
   }
 }
 
@@ -502,9 +505,6 @@ void thread_calculate_priority (struct thread *t)
   } else {
     t->effective_priority = t->priority;
   }
-
-  // Yields thread because the current thread might no longer have the highest priority
-  thread_yield();
 }
 
 /* Sets the current thread's nice value to new_nice. */

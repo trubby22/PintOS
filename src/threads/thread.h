@@ -130,9 +130,9 @@ extern bool thread_mlfqs;
 // Struct used for stroing priority donations in lists
 struct priority_donation
 {
-  struct list_elem thread_elem; /* For adding to list in struct thread */
-  struct list_elem lock_elem; /* For adding to list in struct lock */
-  int priority; /* Stores donated priority */
+  struct list_elem thread_elem; /* Points to the receiving thread */
+  struct list_elem lock_elem;   /* Points to the associated lock  */
+  int priority;                 /* Stores donated priority */
 };
 
 void thread_init (void);
