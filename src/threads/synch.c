@@ -125,7 +125,7 @@ sema_up_no_yield (struct semaphore *sema)
   if (!list_empty (&sema->waiters)) 
   {
     enum comparator less = LESS;
-    struct list_elem *elem = list_max(&sema->waiters,compare_threads,&less);
+    struct list_elem *elem = list_max(&sema->waiters,&compare_threads,&less);
     list_remove(elem);
 
     thread_unblock (list_entry(elem, struct thread, elem));
@@ -192,6 +192,7 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
+  list_init(&lock->donated_priorities);
   sema_init (&lock->semaphore, 1);
 }
 
@@ -209,7 +210,10 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+  // Donates priority to lock holder; adds priority to the list in struct thread and in struct lock
+  if (lock->holder != NULL)
+    thread_donate_priority(lock->holder, lock);
+    
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -227,6 +231,10 @@ lock_try_acquire (struct lock *lock)
 
   ASSERT (lock != NULL);
   ASSERT (!lock_held_by_current_thread (lock));
+
+  // Should the donation happen here too or just in lock_acquire()?
+  if (lock->holder != NULL)
+    thread_donate_priority(lock->holder, lock);
 
   success = sema_try_down (&lock->semaphore);
   if (success)
@@ -246,7 +254,10 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   lock->holder = NULL;
-  sema_up (&lock->semaphore);
+  // sema_up_no_yield?
+  sema_up_no_yield (&lock->semaphore);
+
+  thread_give_back_priority(lock);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -356,7 +367,7 @@ cond_signal_prime (struct condition *cond, struct lock *lock UNUSED, bool yield)
 
   if (!list_empty (&cond->waiters))
   {
-        enum comparator less = LESS;
+    enum comparator less = LESS;
     struct list_elem *elem = list_max(&cond->waiters,sema_compare,&less);
     list_remove(elem);
     if (yield)
