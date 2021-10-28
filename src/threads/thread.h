@@ -108,6 +108,8 @@ struct thread
     int nice;                           /* Thread's nice value */
     fp32_t recent_cpu;                  /* Thread's recent cpu value */
     struct list received_priorities;    /* List of received priorities */
+    struct list recepiant_threads;      /* */
+    struct list_elem recepiant_elem;    /* */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
