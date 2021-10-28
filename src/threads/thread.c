@@ -654,7 +654,7 @@ void thread_update_priority (struct thread *t) {
     new_priority = PRI_MAX;
   }
 
-  t->priority = new_priority;
+  t->effective_priority = new_priority;
 }
 
 /* Updates priority of all threads. */
