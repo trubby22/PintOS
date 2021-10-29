@@ -385,20 +385,42 @@ thread_donate_priority (struct thread *target, struct lock *lock)
 {
   int new_priority = thread_current ()->effective_priority;
 
+  thread_donate_priority_children (thread_current(),target, lock, new_priority);
+
+  thread_yield();
+}
+
+/* Donates the current thread's effective_priority to the thread given in the function call. */
+void
+thread_donate_priority_children (struct thread *sender,struct thread *target, struct lock *lock, int new_priority) 
+{
   if (new_priority <= target->effective_priority) {
     return;
   }
-  struct priority_donation *donation = malloc(sizeof(struct priority_donation));
-  // TODO: add a free for donation
-  donation->priority = new_priority;
 
+  struct priority_donation *donation = malloc(sizeof(struct priority_donation));
+  donation->priority = new_priority;
   list_insert_ordered(&target->received_priorities, &donation->thread_elem, &list_less_priority, NULL);
+  list_push_back(&sender->recepiant_threads, &target-> recepiant_elem);
   list_push_back(&lock->donated_priorities, &donation->lock_elem);
 
+  struct list *recipiants = &target -> recepiant_threads;
+
+  if (!list_empty(recipiants))
+  {
+    struct list_elem *child;
+    for (child = list_begin(recipiants); 
+                        child != list_end(recipiants); child = list_next(child))
+    {
+      struct thread *child_t = list_entry(child, struct thread, recepiant_elem);
+      thread_donate_priority_children (target, child_t, lock, new_priority); 
+    }
+  }
+  
   // Calculates thread's new effective priority after the donation
   thread_calculate_priority(target);
-  thread_yield();
 }
+
 
 // Gives back priorities associated with a lock
 void thread_give_back_priority (struct lock *lock)
@@ -764,6 +786,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   t->effective_priority = priority;
   list_init(&t->received_priorities);
+  list_init(&t->recepiant_threads);
 
   t->magic = THREAD_MAGIC;
 
