@@ -384,15 +384,18 @@ void
 thread_donate_priority (struct thread *target, struct lock *lock) 
 {
   int new_priority = thread_current ()->effective_priority;
-
-  thread_donate_priority_children (thread_current(),target, lock, new_priority);
+  thread_donate_priority_children (thread_current(), target, lock, new_priority);
 
   thread_yield();
 }
 
 /* Donates the current thread's effective_priority to the thread given in the function call. */
-void
-thread_donate_priority_children (struct thread *sender,struct thread *target, struct lock *lock, int new_priority) 
+void thread_donate_priority_children(
+  struct thread *sender, 
+  struct thread *target, 
+  struct lock *lock, 
+  int new_priority
+)
 {
   if (new_priority <= target->effective_priority) {
     return;
@@ -409,8 +412,10 @@ thread_donate_priority_children (struct thread *sender,struct thread *target, st
   if (!list_empty(recipiants))
   {
     struct list_elem *child;
-    for (child = list_begin(recipiants); 
-                        child != list_end(recipiants); child = list_next(child))
+    for (
+      child = list_begin(recipiants); 
+      child != list_end(recipiants); 
+      child = list_next(child))
     {
       struct thread *child_t = list_entry(child, struct thread, recepiant_elem);
       thread_donate_priority_children (target, child_t, lock, new_priority); 
@@ -421,6 +426,11 @@ thread_donate_priority_children (struct thread *sender,struct thread *target, st
   thread_calculate_priority(target);
 }
 
+void
+thread_release_donation(struct priority_donation *donation) {
+  list_remove(&donation->thread_elem);
+  list_remove(&donation->lock_elem);
+}
 
 // Gives back priorities associated with a lock
 void thread_give_back_priority (struct lock *lock)
@@ -433,11 +443,11 @@ void thread_give_back_priority (struct lock *lock)
   if (!list_empty(lock_priorities)) {
     // Removes priority_donation from the list in struct thread and in struct lock
     // problematic line of code below - causes PF exception; is there something wrong with the lock_priorities list?
-    for (e = list_begin (lock_priorities); e != list_end (lock_priorities); e = list_remove (e))
+    for (e = list_begin (lock_priorities); e != list_end (lock_priorities); e = list_next (e))
     {
-      struct priority_donation *pd = list_entry (e, struct priority_donation, lock_elem);
+      struct priority_donation *pd = list_entry(e, struct priority_donation, lock_elem);
       // problematic line of code below - causes PF exception
-      list_remove(&pd->thread_elem);
+      thread_release_donation(pd);
     }
 
     // Calculates thread's new effective priority after giving back the donation
@@ -676,7 +686,7 @@ void thread_update_priority (struct thread *t) {
     new_priority = PRI_MAX;
   }
 
-  t->priority = new_priority;
+  t->effective_priority = new_priority;
 }
 
 /* Updates priority of all threads. */

@@ -170,6 +170,7 @@ void thread_donate_priority(struct thread *, struct lock *);
 void thread_donate_priority_children (struct thread *sender,struct thread *target, 
                                       struct lock *lock, int new_priority);
 void thread_give_back_priority (struct lock *);
+void thread_release_donation(struct priority_donation *);
 
 int thread_get_priority(void);
 void thread_set_priority (int);
