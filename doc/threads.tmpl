@@ -1,4 +1,4 @@
-            +----------------------+
+           +----------------------+
             |        OS 211        |
             |  TASK 1: SCHEDULING  |
             |    DESIGN DOCUMENT   |
@@ -9,20 +9,23 @@
 >> Fill in the names and email addresses of your group members.
 
 Alexander Bainbridge <adb120@ic.ac.uk>
-FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Piotr Blaszyk <psb120@ic.ac.uk>
+Aiden Heselden <ah720@ic.ac.uk>
+Lewis Kerley <lmk120@ic.ac.uk>
 
 ---- PRELIMINARIES ----
 
 >> If you have any preliminary comments on your submission, or notes for the
 >> markers, please give them here.
 
+A note on unusual branch names/ commits: We decided to use feature branches for the development of this task. The main ones being for the basic scheduler, priority donations and the bsd scheduler. This worked well until having to merge them together and then into master. Since most of us were inexperienced with merging, code was lost in merges. Additionally priority donations relied on the basic scheduler, so it couldn’t be tested properly and the merger resulted in many bugs. As a group we have opted to not use branches moving forward and rather have a continuous integration approach. 
+
 >> Please cite any offline or online sources you consulted while preparing your 
 >> submission, other than the Pintos documentation, course text, lecture notes 
 >> and course staff.
 
-             PRIORITY SCHEDULING
-             ===================
+PRIORITY SCHEDULING
+===================
 
 ---- DATA STRUCTURES ----
 
@@ -31,9 +34,61 @@ FirstName LastName <email@domain.example>
 >> global or static variable, `typedef', or enumeration.  
 >> Identify the purpose of each in roughly 25 words.
 
+
+enum comparator
+{
+  LESS,
+  LESSEQ,
+  EQUALS,
+  MOREEQ,
+  MORE
+};
+
+This enum is used by compare_threads and sema_compare, which are list_less_func’s, in a switch e.g. LESSEQ ⇒ <=.
+
+// Struct used for storing priority donations in lists
+struct priority_donation
+{
+  struct list_elem thread_elem; /* For adding to list in struct thread */
+  struct list_elem lock_elem; /* For adding to list in struct lock */
+  int priority; /* Stores donated priority */
+};
+
+Struct priority_donation is used for storing donations. The struct is initialized every time a lock is acquired and links to received_priorities list in struct thread and to donated_priorities list in struct lock.
+
+​​/* Lock. */
+struct lock 
+  {
+    ...
+    struct list donated_priorities; /* List of associated donations */
+    ...
+  };
+
+Added struct list donated_priorities to struct lock. It stores priority_donations associated with the lock, i.e. priorities donated when one thread tried to acquire that lock but failed because it was held by another thread.
+
+struct thread
+{
+  ...
+  struct list received_priorities;    /* List of received priorities */
+  struct list recipient_threads;    /* List of child threads*/
+  struct list_elem recipient_elem;   /* List element for recipient_threads */
+  ...
+};
+
+Added struct list received_priorities to struct thread. Used for storing priority donations received by the thread. Added struct list recepiant_threads to record threads that have been donated to by this thread, and the according list_elem. 
+
 >> A2: (4 marks) 
 >> Draw a diagram that illustrates a nested donation in your structure and 
 >> briefly explain how this works.
+
+struct thread->recipient_threads gives the list of threads that must also be donated to.
+
+Recursive nested donations such that:
+ -----       -----            -----        -----           -----        -----
+|  A  | -> |  B  | AND |  C  | -> |  B  | then |  B  | -> |  A  | 
+ -----       -----            -----        -----           -----        -----
+
+When C->B, look at B’s children in an iteration, calling recursive donation function.
 
 ---- ALGORITHMS ----
 
@@ -41,14 +96,20 @@ FirstName LastName <email@domain.example>
 >> How do you ensure that the highest priority waiting thread wakes up first for
 >> a (i) lock, (ii) semaphore, or (iii) condition variable?
 
+Used a list less func to choose the maximum priority thread in the semaphore waiting list. Specifically the list_insert_ordered and list_max functions are used with the compare_threads comparator function. For conditions each thread is contained within a semaphore, so a new list_less_func is used for semaphores called sema_compare. This function compares semaphores based on their one thread’s priority so it calls compare_threads. Once a thread is woken up through a semaphore the current thread yields to ensure the highest priority thread is running. Condition broadcast works slightly differently, we considered that all the threads should be unblocked by the broadcast before yielding. We used a helper function to encapsulate the shared functionality and called it from both the broadcast, and the signal, using a masked boolean to determine whether or not to yield the current thread.
+
 >> A4: (3 marks)
 >> Describe the sequence of events when a call to lock_acquire() causes a 
 >> priority donation. 
 >> How is nested donation handled?
 
+If the lock is already held by a thread then a donation is performed. The donation is recorded in struct priority_donation. Struct priority_donation has two list_elem’s, allowing it to be stored in a list belonging to threads and to locks. To properly handle a list of recipient threads is recorded in each thread. When a donation is performed the donation drips down to the previous recipients (or children). This is done through a recursion in the function thread_donate_priority_children. Recursion allows the whole tree of donations to be updated with the new_priority. Once a thread is reached with a higher priority we can return from this call as all its children will have the same effective priority. After all the priorities in the theoretical tree of donations are updated the original thread yields to the processor. 
+
 >> A5: (3 marks)
 >> Describe the sequence of events when lock_release() is called on a lock that 
 >> a higher-priority thread is waiting for.
+
+When a lock is released it returns all the priority donations associated with it. This means removing the donations from the locks donations list and also from the threads received/sent donations list. Threads might have donations associated with multiple different locks hence why the locks must store the donation elements as well as the threads. The current thread's effective priority is then recalculated, this may be it’s base priority or a higher priority due to donations related to another thread. Then thread_yield is called to ensure the highest priority thread is running. 
 
 ---- SYNCHRONIZATION ----
 
@@ -58,14 +119,22 @@ FirstName LastName <email@domain.example>
 >> potentially change during the computation?
 >> Can you use a lock to avoid the race?
 
+The recollection of effective priority could be called from an interrupt context in the case where thread_donate_priority is called from lock_try_acquire. Locks can’t be used in an 
+interrupt context so a semaphore should be used to prevent race conditions. Sema_up can be performed on a semaphore initialized to 0 when entering the function, and then sema_down once the priority has been recalculated. 
+
 ---- RATIONALE ----
 
 >> A7: (3 marks)
 >> Why did you choose this design?  
 >> In what ways is it superior to another design you considered?
 
-              ADVANCED SCHEDULER
-              ==================
+Our design especially for donations is quite scattered possibly as a result of multiple people working on it. We did consider having the donor thread and the recipient be recorded in each priority donation. We believed this might help with nested and chain donations, since the donation can drip through the parent/child thread pairs. This is similar to how such donations were planned to be handled but a list of recipients is stored in each thread instead. 
+
+Originally thread_calculate_priority would yield however this would cause problems with nested/chain donations as we want all the threads in the donation tree to have their received priorities list updated first. For this reason any function that chooses to call thread_calculate_priority must do so itself after it returns. 
+
+
+ADVANCED SCHEDULER
+==================
 
 ---- DATA STRUCTURES ----
 
@@ -73,6 +142,27 @@ FirstName LastName <email@domain.example>
 >> Copy here the declaration of each new or changed `struct' or `struct' member,
 >> global or static variable, `typedef', or enumeration. 
 >> Identify the purpose of each in roughly 25 words.
+
+#define Q 14
+int32_t f = 1 << Q;
+ typedef int32_t fp32_t;
+
+Q is a constant used in fixed-point.c where Q + P, Q being the amount of bits before the ‘binary’ point in our fixed point number representation. Shifting 1 Q times calculates f which is used in the calculations performed in fixed-point.c as dividing by f is analogous to shifting by Q. fp32_t is defined to be the same as int32_t, it is used so the programmer knows that they are working with a fixed-point number representation rather than an int32_t, essentially for readability rather than functional reasons. 
+
+System load average expressed as a fixed-point number (fp32_t is defined in fixed-point.h). Used for calculating thread’s recent_cpu and priority
+
+// System load average
+static fp32_t load_avg;
+
+Definitions of minimum and maximum nice values. Used in thread_set_nice to check whether the new nice value is in bounds
+
+#define NICE_MIN -20                    /* Lowest niceness. */
+#define NICE_MAX 20                    /* Highest niceness. */
+
+Thread’s nice value and recent cpu value. Used for calculating thread’s priority.
+
+int nice;                          	 /* Thread's nice value */
+fp32_t recent_cpu;                  /* Thread's recent cpu value */
 
 ---- ALGORITHMS ----
 
@@ -82,27 +172,35 @@ FirstName LastName <email@domain.example>
 >> Fill in the table below showing the scheduling decision, the priority and the
 >> recent_cpu values for each thread after each given number of timer ticks:
 
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
+timer  recent_cpu    priority     thread
+ticks   A   B   C        A   B   C   to run
+-----    --   --   --        --   --   --    ------
+ 0       0    0   0        63 61 59     A
+ 4       4    0   0	       62 61 59	   A
+ 8       8    0   0        61 61 59     B
+12      8    4   0        61 60 59     A
+16     12   4   0        60  60 59    B
+20     12   8   0        60 59 59    A
+24     16   8  0         59  59 59   C  
+28      16  8  4         59  59  58  B
+32      16 12 4         59  58  58  A
+36      20 12 4         58  58  58  C
 
 >> B3: (2 marks) 
 >> Did any ambiguities in the scheduler specification make values in the table 
 >> uncertain? 
 >> If so, what rule did you use to resolve them?
 
+In the scheduler specification it isn’t stated how to resolve a situation when a calculated thread priority is less than PRI_MIN (0) or greater than PRI_MAX (63). We decided to set the priority to PRI_MIN in the first case, and to PRI_MAX in the latter one.
+
 ---- RATIONALE ----
 
 >> B4: (3 marks)
 >> Briefly critique your design, pointing out advantages and disadvantages in 
 >> your design choices.
+
+We’ve implemented a new class fixed-point.c that contains the methods for dealing with fixed point numbers and the fp32_t type, which makes it easier to deal with them in other classes. Our design is simple because it only adds a few members to the struct thread and one static variable. Also, the method for dealing with calculated priority being out of bounds is straightforward.
+
+One disadvantage is that priority gets recalculated every 4 ticks even when it’s not necessary. We could instead recalculate only for the threads that were running in the past 4 ticks instead for all threads. Also, new members are added to struct thread, which is not memory efficient - a better approach in terms of memory efficiency would be to create separate lists storing thread’s recent_cpu and only include a pointer to that in struct thread.
+
+
