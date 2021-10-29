@@ -108,8 +108,8 @@ struct thread
     int nice;                           /* Thread's nice value */
     fp32_t recent_cpu;                  /* Thread's recent cpu value */
     struct list received_priorities;    /* List of received priorities */
-    struct list recepiant_threads;      /* */
-    struct list_elem recepiant_elem;    /* */
+    struct list recepiant_threads;      /* List of child threads*/
+    struct list_elem recepiant_elem;    /* List element for recepiant_threads */
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -167,6 +167,8 @@ typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
 
 void thread_donate_priority(struct thread *, struct lock *);
+void thread_donate_priority_children (struct thread *sender,struct thread *target, 
+                                      struct lock *lock, int new_priority);
 void thread_give_back_priority (struct lock *);
 
 int thread_get_priority(void);
