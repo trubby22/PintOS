@@ -1,6 +1,10 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
+#define CONSOLE_LIMIT 300
+
 void syscall_init (void);
+
+int write (int fd, const void *buffer, unsigned size);
 
 #endif /* userprog/syscall.h */
