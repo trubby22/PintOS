@@ -5,9 +5,12 @@
 #include <stdbool.h>
 
 typedef int pid_t;
+#define CONSOLE_LIMIT 300
 
 void syscall_init (void);
 void validate_user_pointer (uint32_t *pd, void *user_pointer);
 
+
+int write (int fd, const void *buffer, unsigned size);
 
 #endif /* userprog/syscall.h */
