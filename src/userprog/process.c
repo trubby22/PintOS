@@ -88,6 +88,9 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while(true) {
+    // temporary, allows programs to execute (but not "complete")
+  }
   return -1;
 }
 
