@@ -50,6 +50,7 @@ syscall_handler (struct intr_frame *f)
 
   uint32_t (*syscall_func)() = syscall_funcs[syscall_num];
 
+  // TODO: Shouldn't argv be renamed to argc?
   int argv = (arg1 != NULL) + (arg2 != NULL) + (arg3 != NULL);
 
   uint32_t result;
@@ -98,7 +99,7 @@ write (int fd, const void *buffer, unsigned size)
     while (remaining > CONSOLE_LIMIT) {
       putbuf(buffer + offset, CONSOLE_LIMIT);
       remaining = remaining - CONSOLE_LIMIT;
-      offset = offset + CONSOLE_LIMIT;
+      offset += CONSOLE_LIMIT;
     }
     putbuf(buffer + offset, remaining);
 
