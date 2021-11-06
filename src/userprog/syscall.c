@@ -84,22 +84,4 @@ void validate_user_pointer (uint32_t *pd, void *user_pointer){
   process_exit();
 }
 
-int
-write (int fd, const void *buffer, unsigned size)
-{
-  if (fd == STDOUT_FILENO) {
-    unsigned remaining = size;
-    int offset = 0;
 
-    while (remaining > CONSOLE_LIMIT) {
-      putbuf(buffer + offset, CONSOLE_LIMIT);
-      remaining -= CONSOLE_LIMIT;
-      offset += CONSOLE_LIMIT;
-    }
-    putbuf(buffer + offset, remaining);
-
-    return size;
-  }
-
-  return 0;
-}
