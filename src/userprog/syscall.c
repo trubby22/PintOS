@@ -27,11 +27,6 @@ static void syscall_handler (struct intr_frame *);
   }
 } */
 
-
-
-uint32_t (*syscall_funcs[])() = {halt, exit, exec, wait, create, remove, open, filesize,
-                             read, write, seek, tell, close};
-
 void
 syscall_init (void) 
 {
@@ -46,38 +41,52 @@ syscall_handler (struct intr_frame *f)
   void *arg1 = (void *) *(esp - 12);
   void *arg2 = (void *) *(esp - 8);
   void *arg3 = (void *) *(esp - 4);
+  uint32_t result = 0;
 
-
-  uint32_t (*syscall_func)() = syscall_funcs[syscall_num];
-
-  // TODO: Shouldn't argv be renamed to argc?
-  int argv = (arg1 != NULL) + (arg2 != NULL) + (arg3 != NULL);
-
-  uint32_t result;
-
-  switch (argv)
-  {
-  case 0:
-    result = syscall_func();
-    break;
-  
-  case 1:
-    result = syscall_func(arg1);
-    break;
-
-  case 2:
-    result = syscall_func(arg1,arg2);
-    break;
-
-  case 3:
-    result = syscall_func(arg1,arg2,arg3);
-    break;  
-
-  default:
-    // TODO: Change that to an exception and then catch it
-    printf("Error occured while evaluating argv!\n");
-    result = 0;
-    break;
+  switch(syscall_num) {
+    case 0:
+      halt();
+      break;
+    case 1:
+      exit((int) arg1);
+      break;
+    case 2:
+      result = (uint32_t) exec((const char *) arg1);
+      break;
+    case 3:
+      result = (uint32_t) wait((pid_t) arg1);
+      break;
+    case 4:
+      result = (uint32_t) create((const char *) arg1, (unsigned) arg2);
+      break;
+    case 5:
+      result = (uint32_t) remove((const char *) arg1);
+      break;
+    case 6:
+      result = (uint32_t) open((const char *) arg1);
+      break;
+    case 7:
+      result = (uint32_t) filesize((int) arg1);
+      break;
+    case 8:
+      result = (uint32_t) read((int) arg1, (void *) arg2, (unsigned int) arg3);
+      break;
+    case 9:
+      result = (uint32_t) write((int) arg1, (const void *) arg2, (unsigned int) arg3);
+      break;
+    case 10:
+      seek((int) arg1, (unsigned) arg2);
+      break;
+    case 11:
+      result = (uint32_t) tell((int) arg1);
+      break;
+    case 12:
+      close((int) arg1);
+      break;
+    default:
+      // TODO: Change that to an exception and catch it later
+      printf("An error occured while evaluating syscall_num!\n");
+      break;
   }
 
   f -> eax = result;
