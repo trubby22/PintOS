@@ -120,22 +120,7 @@ read (int fd, void *buffer, unsigned size)
 int
 write (int fd, const void *buffer, unsigned size)
 {
-  if (fd == STDOUT_FILENO) {
-    unsigned remaining = size;
-    int offset = 0;`
-
-    while (remaining > CONSOLE_LIMIT) {
-      // TODO: gives warnings that putbuf is implicitly defined
-      putbuf(buffer + offset, CONSOLE_LIMIT);
-      remaining -= CONSOLE_LIMIT;
-      offset += CONSOLE_LIMIT;
-    }
-    putbuf(buffer + offset, remaining);
-
-    return size;
-  }
-
-  return 0;
+  return syscall3 (SYS_WRITE, fd, buffer, size);
 }
 
 void
