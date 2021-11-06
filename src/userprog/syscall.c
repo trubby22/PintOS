@@ -10,23 +10,6 @@
 
 static void syscall_handler (struct intr_frame *);
 
-/* struct syscall_func{
-  int expected_argv;
-  union {
-    void (*fun_ptr)(void);
-    void (*fun_ptr)(int);
-    pid_t exec (const char *file);
-    bool create (const char *file, unsigned initial_size);
-    bool remove (const char *file);
-    int open (const char *file);
-    int filesize (int fd);
-    int read (int fd, void *buffer, unsigned length);
-    void seek (int fd, unsigned position);
-    unsigned tell (int fd);
-    void close (int fd);
-  }
-} */
-
 void
 syscall_init (void) 
 {
