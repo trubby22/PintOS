@@ -1,6 +1,6 @@
 #include "userprog/syscall.h"
 #include "userprog/process.h"
-#include "userprog/pagedir.c"
+#include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include <stdio.h>
 #include <syscall-nr.h>
