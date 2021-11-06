@@ -122,9 +122,10 @@ write (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
-    int offset = 0;
+    int offset = 0;`
 
     while (remaining > CONSOLE_LIMIT) {
+      // TODO: gives warnings that putbuf is implicitly defined
       putbuf(buffer + offset, CONSOLE_LIMIT);
       remaining -= CONSOLE_LIMIT;
       offset += CONSOLE_LIMIT;
