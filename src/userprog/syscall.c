@@ -48,7 +48,7 @@ syscall_handler (struct intr_frame *f)
   void *arg3 = *(esp - 4);
 
 
-  uint32_t (*syscall_func)() = syscal l_funcs[syscall_num];
+  uint32_t (*syscall_func)() = syscall_funcs[syscall_num];
 
   int argv = (arg1 != NULL) + (arg2 != NULL) + (arg3 != NULL);
 
