@@ -6,7 +6,6 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "lib/user/syscall.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -28,43 +27,42 @@ syscall_handler (struct intr_frame *f)
 
   switch(syscall_num) {
     case 0:
-      halt();
+      // TODO: halt
       break;
     case 1:
-      exit((int) arg1);
+      // TODO: exit
       break;
     case 2:
-      result = (uint32_t) exec((const char *) arg1);
+      // TODO: exec
       break;
     case 3:
-      result = (uint32_t) wait((pid_t) arg1);
+      // TODO: wait
       break;
     case 4:
-      result = (uint32_t) create((const char *) arg1, (unsigned) arg2);
+      // TODO: create
       break;
     case 5:
-      result = (uint32_t) remove((const char *) arg1);
+      // TODO: remove
       break;
     case 6:
-      result = (uint32_t) open((const char *) arg1);
+      // TODO: open
       break;
     case 7:
-      result = (uint32_t) filesize((int) arg1);
+      // TODO: filesize
       break;
     case 8:
-      result = (uint32_t) read((int) arg1, (void *) arg2, (unsigned int) arg3);
+      // TODO: read
       break;
     case 9:
-      result = (uint32_t) write((int) arg1, (const void *) arg2, (unsigned int) arg3);
       break;
     case 10:
-      seek((int) arg1, (unsigned) arg2);
+      // TODO: seek
       break;
     case 11:
-      result = (uint32_t) tell((int) arg1);
+      // TODO: tell
       break;
     case 12:
-      close((int) arg1);
+      // TODO: close
       break;
     default:
       // TODO: Change that to an exception and catch it later
