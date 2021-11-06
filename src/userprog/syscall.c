@@ -43,9 +43,9 @@ syscall_handler (struct intr_frame *f)
 {
   int *esp = (int *) f -> esp;
   int syscall_num = *esp;
-  void *arg1 = *(esp - 12);
-  void *arg2 = *(esp - 8);
-  void *arg3 = *(esp - 4);
+  void *arg1 = (void *) *(esp - 12);
+  void *arg2 = (void *) *(esp - 8);
+  void *arg3 = (void *) *(esp - 4);
 
 
   uint32_t (*syscall_func)() = syscall_funcs[syscall_num];
