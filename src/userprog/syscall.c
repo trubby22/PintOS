@@ -98,7 +98,7 @@ write (int fd, const void *buffer, unsigned size)
 
     while (remaining > CONSOLE_LIMIT) {
       putbuf(buffer + offset, CONSOLE_LIMIT);
-      remaining = remaining - CONSOLE_LIMIT;
+      remaining -= CONSOLE_LIMIT;
       offset += CONSOLE_LIMIT;
     }
     putbuf(buffer + offset, remaining);
