@@ -74,6 +74,9 @@ syscall_handler (struct intr_frame *f)
     break;  
 
   default:
+    // TODO: Change that to an exception and then catch it
+    printf("Error occured while evaluating argv!\n");
+    result = 0;
     break;
   }
 
