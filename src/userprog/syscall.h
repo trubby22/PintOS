@@ -8,7 +8,7 @@ typedef int pid_t;
 #define CONSOLE_LIMIT 300
 
 void syscall_init (void);
-void validate_user_pointer (uint32_t *pd, void *user_pointer);
+void validate_user_pointer (const void *vaddr);
 
 
 int write (int fd, const void *buffer, unsigned size);

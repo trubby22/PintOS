@@ -25,58 +25,94 @@ syscall_handler (struct intr_frame *f)
   void *arg3 = (void *) *(esp - 4);
   uint32_t result = 0;
 
-  switch(syscall_num) {
-    case 0:
-      // TODO: halt
-      break;
-    case 1:
-      // TODO: exit
-      break;
-    case 2:
-      // TODO: exec
-      break;
-    case 3:
-      // TODO: wait
-      break;
-    case 4:
-      // TODO: create
-      break;
-    case 5:
-      // TODO: remove
-      break;
-    case 6:
-      // TODO: open
-      break;
-    case 7:
-      // TODO: filesize
-      break;
-    case 8:
-      // TODO: read
-      break;
-    case 9:
-      break;
-    case 10:
-      // TODO: seek
-      break;
-    case 11:
-      // TODO: tell
-      break;
-    case 12:
-      // TODO: close
-      break;
-    default:
-      // TODO: Change that to an exception and catch it later
-      printf("An error occured while evaluating syscall_num!\n");
-      break;
+  int pid, status, fd;
+  const char* file;
+  unsigned position ,length;
+
+  switch (syscall_num)
+  {
+  case SYS_HALT:
+    //halt();
+
+  case SYS_EXIT:;
+    status = *(int *) arg1;
+    //exit (status);
+    break;
+
+  case SYS_EXEC:;
+    file = *(const char **) arg1;
+    //exec (file);
+    break;
+
+  case SYS_WAIT:;
+    pid = *(int *) arg1;
+    //wait (pid);
+    break;
+
+  case SYS_CREATE:;
+    file = *(const char **) arg1;
+    //create (file, initial_size);
+    break;
+
+  case SYS_REMOVE:;
+    file = *(const char **) arg1;
+    //remove (file);
+    break;
+
+  case SYS_OPEN:;
+    file = *(const char **) arg1;
+    //open (file);
+    break;
+
+  case SYS_FILESIZE:;
+    fd = *(int *) arg1;
+    //filesize (fd);
+    break;
+
+  case SYS_READ:;
+    fd = *(int *) arg1;
+    length = *(unsigned *) arg3;
+    //read (fd, buffer, length);
+    break;
+
+  case SYS_WRITE:;
+    fd = *(int *) arg1;
+    length = *(unsigned *) arg3;
+    //write (fd, buffer, length);
+    break;
+
+  case SYS_SEEK:;
+    fd = *(int *) arg1;
+    position = *(unsigned *) arg2;
+    //seek (fd, position);
+    break;
+
+  case SYS_TELL:;
+    fd = *(int *) arg1;
+    //tell (fd);
+    break;
+
+  case SYS_CLOSE:;
+    fd = *(int *) arg1;
+    //close (fd);
+    break;
+
+  default:
+   printf("An error occured while evaluating syscall_num!\n");
+    break;
+
   }
 
   f -> eax = result;
 }
 
-void validate_user_pointer (uint32_t *pd, void *user_pointer){
-  if (user_pointer &&  pagedir_get_page(pd,user_pointer) && is_user_vaddr(user_pointer))
-  {
-    return;
+void validate_user_pointer (const void *vaddr){
+  if (vaddr){
+    uint32_t *pd;
+    pagedir_get_page(pd,vaddr);
+    if (pd && is_user_vaddr(vaddr)){
+      return;
+    }
   }
   //kill the process
   process_exit();
