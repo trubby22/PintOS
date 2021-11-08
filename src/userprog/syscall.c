@@ -23,8 +23,11 @@ syscall_handler (struct intr_frame *f)
   void *arg1 = (void *) *(esp - 12);
   void *arg2 = (void *) *(esp - 8);
   void *arg3 = (void *) *(esp - 4);
-  uint32_t result = 0;
 
+  int expected = 3; //Will check all args for now
+  validate_args(expected, arg1, arg2, arg3);
+
+  uint32_t result = 0;
   int pid, status, fd;
   const char* file;
   unsigned position ,length;
@@ -98,7 +101,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   default:
-   printf("An error occured while evaluating syscall_num!\n");
+    printf("An error occured while evaluating syscall_num!\n");
     break;
 
   }
@@ -106,15 +109,26 @@ syscall_handler (struct intr_frame *f)
   f -> eax = result;
 }
 
+/* Checks that the first int expected number of args are valid */
+void validate_args (int expected, void *arg1, void *arg2, void *arg3)
+{
+  void *args[3] = {arg1,arg2,arg3};
+  for (int i = 0; i < expected; i++)
+  {
+    validate_user_pointer ( (const void *) args[i]);
+  }
+}
+
+/* Checks a user pointer is not NULL, is within user space and is 
+   mapped to virtual memory. Otherwise the process is killed. */
 void validate_user_pointer (const void *vaddr){
-  if (vaddr){
+  if (vaddr && is_user_vaddr(vaddr)){
     uint32_t *pd;
     pagedir_get_page(pd,vaddr);
-    if (pd && is_user_vaddr(vaddr)){
+    if (pd){
       return;
     }
   }
-  //kill the process
   process_exit();
 }
 
