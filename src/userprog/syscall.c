@@ -2,12 +2,17 @@
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
-#include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
 static void syscall_handler (struct intr_frame *);
+
+// Need a hash table from prcoess/thread id -> files
+// Files being another hashtable from file descriptors to FILE*'s
+
+// 
+
 
 void
 syscall_init (void) 
@@ -151,3 +156,33 @@ write (int fd, const void *buffer, unsigned size)
 
   return 0;
 }
+
+int open (const char *file){
+  //Missing lots of functionality
+  //File might already be open from another process
+  //in which case a unique fd should be made?
+/*   FILE *fp;
+  fp = fopen(file, "w");
+  int fd = (int) fp;
+  return fd; */
+
+  return 0;
+}
+
+//Should only close properly with no other processes have it open
+void close (int fd);
+
+
+int
+read (int fd, const void *buffer, unsigned size)
+{
+  if (fd == STDIN_FILENO) {
+    // use input_getc()
+  }
+
+  // otherwise us fgets(buffer, size, fd => fp, )
+
+  return 0;
+}
+
+

@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdio.h>
+
 
 typedef int pid_t;
 #define CONSOLE_LIMIT 300
