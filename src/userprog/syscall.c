@@ -2,7 +2,7 @@
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
-#include <stdio.h>
+#include "lib/stdio.h"
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
