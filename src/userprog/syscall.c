@@ -5,13 +5,62 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include <hash.h>
 
 static void syscall_handler (struct intr_frame *);
 
 // Need a hash table from prcoess/thread id -> files
 // Files being another hashtable from file descriptors to FILE*'s
 
-// 
+struct process_hash_item
+{
+  struct hash files;   // hashtable of files this process has file descriptors for
+  pid_t pid;           // pid calculated from the threads tid? 
+  int next_fd;         // the next fd generated for a new file, MAX == 128
+  struct hash_elem *elem;
+};
+
+// Used in a hashtable to map file descriptors to FILE structs.
+struct file_hash_item
+{
+  FILE *file;  //The actual file
+  int fd;      //File descriptor, for the hash function
+  int others;  //The amount of other processes that have the file open
+  struct hash_elem elem;
+};
+
+// Hash function where the key is simply the file descriptor
+// File descriptor will calculated with some sort of counter
+// e.g. will start at 1 then tick up
+unsigned hash_hash_func(const struct hash_elem *e, void *aux UNUSED)
+{
+  return (unsigned) hash_entry(e, struct file_hash_item, elem) -> fd;
+}
+
+// Is it bad practise to compare them by their keys?
+// Compare hash items by their file descriptor
+bool hash_less_fun (const struct hash_elem *a,
+                    const struct hash_elem *b,
+                    void *aux)
+{
+  return hash_hash_func(a,NULL) < hash_hash_func(b,NULL);
+}
+
+// the same as other one, could refactor 
+unsigned hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED)
+{
+  return (unsigned) hash_entry(e, struct process_hash_item, elem) -> pid;
+}
+
+// also same as other one? could refactor, would be easier than the 
+// one above
+bool hash_less_fun_b (const struct hash_elem *a,
+                     const struct hash_elem *b,
+                     void *aux)
+{
+  return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
+}
+
 
 
 void
