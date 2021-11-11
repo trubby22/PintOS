@@ -3,6 +3,8 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include <syscall-nr.h>
+#include "lib/user/stdio.h"
+#include <stdio.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include <hash.h>
@@ -16,7 +18,7 @@ struct process_hash_item
 {
   struct hash files;   // hashtable of files this process has file descriptors for
   pid_t pid;           // pid calculated from the threads tid? 
-  int next_fd;         // the next fd generated for a new file, MAX == 128
+  int next_fd;         // the next fd generated for a new file, MAX == 128. Starts at 2
   struct hash_elem *elem;
 };
 
@@ -60,7 +62,6 @@ bool hash_less_fun_b (const struct hash_elem *a,
 {
   return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
 }
-
 
 
 void
@@ -186,6 +187,23 @@ void validate_user_pointer (const void *vaddr){
   process_exit();
 }
 
+/* Given an fd will return the correspomding FILE* */
+FILE* get_file(int fd){
+  pid_t pid = thread_current();
+  //create dummy elem with pid then:
+  struct process_hash_item dummy_p;
+  dummy_p.pid = pid; 
+  struct hash_elem real_elem = hash_find(process_hash, dummy_p.elem);
+  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  struct hash files = p -> files;
+  //create dummy elem with fd then:
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  real_elem = hash_find(&files, dummy_f.elem);
+  struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
+  return f -> file;
+}
+
 int
 write (int fd, const void *buffer, unsigned size)
 {
@@ -207,19 +225,26 @@ write (int fd, const void *buffer, unsigned size)
 }
 
 int open (const char *file){
-  //Missing lots of functionality
-  //File might already be open from another process
-  //in which case a unique fd should be made?
-/*   FILE *fp;
-  fp = fopen(file, "w");
-  int fd = (int) fp;
-  return fd; */
+  
+
+  /* Should return a fd for the file
+     generated from the process id e.g.
+     using the hash table to get an process element,
+     then returning next fd.
+     Should increment next_fd.
+     Should add the file to the hashtable
+     of files open by this process */
 
   return 0;
 }
 
-//Should only close properly with no other processes have it open
-void close (int fd);
+void close (int fd){
+  /* Should look up the current process in the process hash table,
+     to get its open files hashtable.  
+     Then lookup the fd in said hashtable and get the FILE*.
+     Should remove the fd from this processes hashtable, but 
+     should only close if no other files have it open */
+}
 
 
 int
@@ -229,7 +254,12 @@ read (int fd, const void *buffer, unsigned size)
     // use input_getc()
   }
 
-  // otherwise us fgets(buffer, size, fd => fp, )
+  /* Should look up the current process in the process hash table,
+     to get its open files hashtable.
+     Then lookup the fd in said hashtable and get the FILE*
+     From there it's just normal reading from a file */
+
+  //use fgets(buffer, size, fp, )
 
   return 0;
 }
