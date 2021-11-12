@@ -204,6 +204,18 @@ FILE* get_file(int fd){
   return f -> file;
 }
 
+void exit (int status) {
+
+}
+
+pid_t exec (const char *cmd_line) {
+  return 0;
+}
+
+int wait (pid_t pid) {
+  return 0;
+}
+
 int
 write (int fd, const void *buffer, unsigned size)
 {
