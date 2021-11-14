@@ -211,12 +211,19 @@ void exit (int status) {
 }
 
 pid_t exec (const char *cmd_line) {
-  return 0;
+  // Assuming pid is equivalent to tid
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+  pid_t pid = (pid_t) process_execute(cmd_line); 
+  intr_set_level (old_level);
+
+  return pid;
 }
 
 int wait (pid_t pid) {
   // Assuming pid is equivalent to tid
-  return process_wait(pid);
+  return process_wait((tid_t) pid);
 }
 
 int
