@@ -205,7 +205,9 @@ FILE* get_file(int fd){
 }
 
 void exit (int status) {
+  thread_current()->exit_status = status;
   process_exit();
+  thread_exit();
 }
 
 pid_t exec (const char *cmd_line) {
@@ -213,7 +215,8 @@ pid_t exec (const char *cmd_line) {
 }
 
 int wait (pid_t pid) {
-  return 0;
+  // Assuming pid is equivalent to tid
+  return process_wait(pid);
 }
 
 int

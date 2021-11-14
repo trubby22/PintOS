@@ -87,12 +87,42 @@ start_process (void *file_name_)
  * This function will be implemented in task 2.
  * For now, it does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  while(true) {
-    // temporary, allows programs to execute (but not "complete")
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+  struct thread *child;
+  struct list_elem *e;
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if (t->tid == child_tid) {
+        child = t;
+        break;
+      }
+    }
+
+  intr_set_level (old_level);
+
+  if (!child || child->parent_tid != thread_current()->tid || child->already_waited_for) {
+    return -1;
   }
-  NOT_REACHED();
+
+  if (child->status != THREAD_DEAD) {
+    lock_acquire(&child->alive_lock);
+  }
+
+  int exit_status = child->exit_status;
+
+  ASSERT(child->status == THREAD_DEAD);
+
+  list_remove(child->allelem);
+  palloc_free_page(child);
+
+  return exit_status;
 }
 
 /* Free the current process's resources. */
