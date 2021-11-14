@@ -205,7 +205,7 @@ FILE* get_file(int fd){
 }
 
 void exit (int status) {
-
+  process_exit();
 }
 
 pid_t exec (const char *cmd_line) {
