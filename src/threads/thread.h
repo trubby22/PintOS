@@ -94,8 +94,10 @@ struct thread
 
     // Is true if process_wait has been called on this thread
     bool already_waited_for;
-    // The thread acquires the lock when it's initialized and releases it when it dies to notify the parent thread; used in process_wait
+    // The thread acquires the lock when it's initialized and releases it when it dies to notify the parent thread in case it's waiting in process_wait
     struct lock alive_lock;
+    // Exit status that is used when the thread terminates
+    int exit_status;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
