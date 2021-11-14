@@ -92,7 +92,7 @@ process_wait (tid_t child_tid UNUSED)
   while(true) {
     // temporary, allows programs to execute (but not "complete")
   }
-  return -1;
+  NOT_REACHED();
 }
 
 /* Free the current process's resources. */
