@@ -83,28 +83,29 @@ syscall_handler (struct intr_frame *f)
   validate_args(expected, arg1, arg2, arg3);
 
   uint32_t result = 0;
-  int pid, status, fd;
+  pid_t pid;
+  int status, fd;
   const char* file;
   unsigned position ,length;
 
   switch (syscall_num)
   {
-  case SYS_HALT:
+  case SYS_HALT:;
     //halt();
 
-  case SYS_EXIT:;
+  case SYS_EXIT:
     status = *(int *) arg1;
-    //exit (status);
+    exit (status);
     break;
 
-  case SYS_EXEC:;
+  case SYS_EXEC:
     file = *(const char **) arg1;
-    //exec (file);
+    result = (int) exec (file);
     break;
 
-  case SYS_WAIT:;
+  case SYS_WAIT:
     pid = *(int *) arg1;
-    //wait (pid);
+    result = wait (pid);
     break;
 
   case SYS_CREATE:;
