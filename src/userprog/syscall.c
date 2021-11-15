@@ -244,7 +244,7 @@ write (int fd, const void *buffer, unsigned size)
     return size;
   }
 
-  return 0;
+  return file_write (get_file(fd), buffer, size);
 }
 
 int open (const char *file){
