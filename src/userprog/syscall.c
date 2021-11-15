@@ -287,17 +287,11 @@ int
 read (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDIN_FILENO) {
-    // use input_getc()
+    //input_getc();
+    return size;
   }
 
-  /* Should look up the current process in the process hash table,
-     to get its open files hashtable.
-     Then lookup the fd in said hashtable and get the FILE*
-     From there it's just normal reading from a file */
-
-  //use fgets(buffer, size, fp, )
-
-  return 0;
+  return file_read (get_file(fd), buffer, size);
 }
 
 
