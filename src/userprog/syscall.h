@@ -13,7 +13,9 @@ void syscall_init (void);
 void validate_args (int expected, void *arg1, void *arg2, void *arg3);
 void validate_user_pointer (const void *vaddr);
 
-
+void exit (int);
+pid_t exec (const char *);
+int wait (pid_t);
 int write (int fd, const void *buffer, unsigned size);
 
 #endif /* userprog/syscall.h */

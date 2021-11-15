@@ -83,28 +83,29 @@ syscall_handler (struct intr_frame *f)
   validate_args(expected, arg1, arg2, arg3);
 
   uint32_t result = 0;
-  int pid, status, fd;
+  pid_t pid;
+  int status, fd;
   const char* file;
   unsigned position ,length;
 
   switch (syscall_num)
   {
-  case SYS_HALT:
+  case SYS_HALT:;
     //halt();
 
-  case SYS_EXIT:;
+  case SYS_EXIT:
     status = *(int *) arg1;
-    //exit (status);
+    exit (status);
     break;
 
-  case SYS_EXEC:;
+  case SYS_EXEC:
     file = *(const char **) arg1;
-    //exec (file);
+    result = (int) exec (file);
     break;
 
-  case SYS_WAIT:;
+  case SYS_WAIT:
     pid = *(int *) arg1;
-    //wait (pid);
+    result = wait (pid);
     break;
 
   case SYS_CREATE:;
@@ -202,6 +203,28 @@ FILE* get_file(int fd){
   real_elem = hash_find(&files, &dummy_f -> elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
+}
+
+void exit (int status) {
+  thread_current()->exit_status = status;
+  process_exit();
+  thread_exit();
+}
+
+pid_t exec (const char *cmd_line) {
+  // Assuming pid is equivalent to tid
+  enum intr_level old_level;
+
+  old_level = intr_disable ();
+  pid_t pid = (pid_t) process_execute(cmd_line); 
+  intr_set_level (old_level);
+
+  return pid;
+}
+
+int wait (pid_t pid) {
+  // Assuming pid is equivalent to tid
+  return process_wait((tid_t) pid);
 }
 
 int

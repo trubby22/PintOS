@@ -70,6 +70,10 @@ print_stacktrace(struct thread *t, void *aux UNUSED)
     case THREAD_BLOCKED:  
       status = "BLOCKED";
       break;
+    
+    case THREAD_DEAD:  
+      status = "DEAD";
+      break;
 
     default:
       break;

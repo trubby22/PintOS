@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -290,6 +289,15 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
+void free_child_resources (struct thread *t, struct thread *parent) {
+  if (t->parent_tid == parent->tid) {
+    ASSERT (intr_get_level() == INTR_OFF);
+
+    list_remove(t->allelem);
+    palloc_free_page(t);
+  }
+}
+
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
@@ -305,8 +313,11 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
+  // list_remove (&thread_current()->allelem);
+  struct thread *t = thread_current();
+  t->status = THREAD_DEAD;
+  lock_release(&t->alive_lock);
+  thread_foreach(free_child_resources, t);
   schedule ();
   NOT_REACHED ();
 }
@@ -478,6 +489,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  struct lock *lock = &t->alive_lock;
+  lock_init (lock);
+  lock->holder = t;
+  lock->semaphore.value = 0;
+
+  t->already_waited_for = false;
+  struct thread *cur;
+  if (cur = thread_current()) {
+    t->parent_tid = cur->tid;
+  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

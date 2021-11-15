@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -11,7 +12,9 @@ enum thread_status
     THREAD_RUNNING,     /* Running thread. */
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-    THREAD_DYING        /* About to be destroyed. */
+    THREAD_DYING,       /* About to be destroyed. */
+    // Dead but kept around for retrieving exit_status
+    THREAD_DEAD         
   };
 
 /* Thread identifier type.
@@ -84,11 +87,19 @@ struct thread
   {
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
+    tid_t parent_tid;                   /* Parent thread identifier. */
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+
+    // Is true if process_wait has been called on this thread
+    bool already_waited_for;
+    // The thread acquires the lock when it's initialized and releases it when it dies to notify the parent thread in case it's waiting in process_wait
+    struct lock alive_lock;
+    // Exit status that is used when the thread terminates
+    int exit_status;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
