@@ -119,7 +119,7 @@ process_wait (tid_t child_tid)
 
   ASSERT(child->status == THREAD_DEAD);
 
-  list_remove(child->allelem);
+  list_remove(&child->allelem);
   palloc_free_page(child);
 
   return exit_status;
