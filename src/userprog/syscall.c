@@ -3,8 +3,8 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include <syscall-nr.h>
-#include "lib/user/stdio.h"
-#include <stdio.h>
+#include <filesys.h>
+#include <file.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include <hash.h>
@@ -25,9 +25,8 @@ struct process_hash_item
 // Used in a hashtable to map file descriptors to FILE structs.
 struct file_hash_item
 {
-  FILE *file;  //The actual file
+  file *file;  //The actual file
   int fd;      //File descriptor, for the hash function
-  int others;  //The amount of other processes that have the file open
   struct hash_elem elem;
 };
 
@@ -185,11 +184,11 @@ void validate_user_pointer (const void *vaddr){
       return;
     }
   }
-  process_exit();
+  exit(1);
 }
 
 /* Given an fd will return the correspomding FILE* */
-FILE* get_file(int fd){
+file get_file(int fd){
   pid_t pid = thread_current() -> tid;
   //create dummy elem with pid then:
   struct process_hash_item *dummy_p;
@@ -248,31 +247,35 @@ write (int fd, const void *buffer, unsigned size)
 }
 
 int open (const char *file){
-  
-
-  /* Should return a fd for the file
-     generated from the process id e.g.
-     using the hash table to get an process element,
-     then returning next fd.
-     Should increment next_fd.
-     Should add the file to the hashtable
-     of files open by this process */
-
-  //Most of this code can be/should be extracted
   pid_t pid = thread_current()->tid;
   struct process_hash_item *dummy_p;
   p -> pid = pid;
   struct hash_elem real_elem = hash_find(process_hash, &dummy_p -> elem);
   struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
-  int fd = p -> next_fd;
-  FILE *fp = fopen(file, "rw"); //Is this the correct way to open?
+
   struct file_hash_item *f;
-  f -> file = fp;
-  f -> fd = fd;
+  f -> file = filesys_open(file);
+  f -> fd = p -> next_fd;
   //Do we need to explicitly make an elem for f?
   hash_insert(p -> files, f -> elem);
   return fd;
 }
+
+bool create (const char *file, unsigned initial_size){
+  return filesys_create(file, initial_size);
+}
+
+bool remove (const char *file){
+  return filesys_remove(file);
+}
+
+void close (int fd){
+  //Remove it from this processess hash table then 'close'
+  
+  struct file* file = get_file(fd);
+  file_close(file)
+}
+
 
 void close (int fd){
   /* Should look up the current process in the process hash table,
