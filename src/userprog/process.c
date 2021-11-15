@@ -5,9 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <hash.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/syscall.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -20,6 +22,10 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
+struct hash *process_hash;
+hash_init(process_hash, hash_hash_func_b, hash_less_fun_b);
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -51,6 +57,16 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  //Initisalise new process_hash_item
+  //Has to be done once thread has started running
+  struct process_hash_item *p;
+  p -> next_fd = 2;
+  struct hash *files;
+  hash_init(*files, hash_hash_func_a, hash_less_func_a, NULL);
+  p -> files = files;
+  p -> tid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
+  hash_insert(process_hash, p->elem);
+
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;

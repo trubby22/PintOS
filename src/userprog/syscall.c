@@ -189,17 +189,17 @@ void validate_user_pointer (const void *vaddr){
 
 /* Given an fd will return the correspomding FILE* */
 FILE* get_file(int fd){
-  pid_t pid = thread_current();
+  pid_t pid = thread_current() -> tid;
   //create dummy elem with pid then:
-  struct process_hash_item dummy_p;
-  dummy_p.pid = pid; 
-  struct hash_elem real_elem = hash_find(process_hash, dummy_p.elem);
+  struct process_hash_item *dummy_p;
+  dummy_p -> pid = pid; 
+  struct hash_elem *real_elem = hash_find(process_hash, &dummy_p -> elem);
   struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
   struct hash files = p -> files;
   //create dummy elem with fd then:
-  struct file_hash_item dummy_f;
-  dummy_f.fd = fd;
-  real_elem = hash_find(&files, dummy_f.elem);
+  struct file_hash_item *dummy_f;
+  dummy_f -> fd = fd;
+  real_elem = hash_find(&files, &dummy_f -> elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
 }
@@ -235,7 +235,20 @@ int open (const char *file){
      Should add the file to the hashtable
      of files open by this process */
 
-  return 0;
+  //Most of this code can be/should be extracted
+  pid_t pid = thread_current()->tid;
+  struct process_hash_item *dummy_p;
+  p -> pid = pid;
+  struct hash_elem real_elem = hash_find(process_hash, &dummy_p -> elem);
+  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  int fd = p -> next_fd;
+  FILE *fp = fopen(file, "rw"); //Is this the correct way to open?
+  struct file_hash_item *f;
+  f -> file = fp;
+  f -> fd = fd;
+  //Do we need to explicitly make an elem for f?
+  hash_insert(p -> files, f -> elem);
+  return fd;
 }
 
 void close (int fd){
