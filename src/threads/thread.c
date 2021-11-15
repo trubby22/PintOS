@@ -293,7 +293,7 @@ void free_child_resources (struct thread *t, struct thread *parent) {
   if (t->parent_tid == parent->tid) {
     ASSERT (intr_get_level() == INTR_OFF);
 
-    list_remove(t->allelem);
+    list_remove(&t->allelem);
     palloc_free_page(t);
   }
 }
