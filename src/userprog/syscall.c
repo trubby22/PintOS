@@ -34,31 +34,35 @@ struct file_hash_item
 // Hash function where the key is simply the file descriptor
 // File descriptor will calculated with some sort of counter
 // e.g. will start at 1 then tick up
-unsigned hash_hash_func(const struct hash_elem *e, void *aux UNUSED)
+unsigned 
+hash_hash_func(const struct hash_elem *e, void *aux UNUSED)
 {
   return (unsigned) hash_entry(e, struct file_hash_item, elem) -> fd;
 }
 
 // Is it bad practise to compare them by their keys?
 // Compare hash items by their file descriptor
-bool hash_less_fun (const struct hash_elem *a,
-                    const struct hash_elem *b,
-                    void *aux)
+bool 
+hash_less_fun (const struct hash_elem *a,
+               const struct hash_elem *b,
+               void *aux)
 {
   return hash_hash_func(a,NULL) < hash_hash_func(b,NULL);
 }
 
 // the same as other one, could refactor 
-unsigned hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED)
+unsigned 
+hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED)
 {
   return (unsigned) hash_entry(e, struct process_hash_item, elem) -> pid;
 }
 
 // also same as other one? could refactor, would be easier than the 
 // one above
-bool hash_less_fun_b (const struct hash_elem *a,
-                     const struct hash_elem *b,
-                     void *aux)
+bool 
+hash_less_fun_b (const struct hash_elem *a,
+                 const struct hash_elem *b,
+                 void *aux)
 {
   return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
 }
@@ -126,7 +130,7 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_FILESIZE:;
     fd = *(int *) arg1;
-    //filesize (fd);
+    filesize (fd);
     break;
 
   case SYS_READ:;
@@ -167,7 +171,8 @@ syscall_handler (struct intr_frame *f)
 }
 
 /* Checks that the first int expected number of args are valid */
-void validate_args (int expected, void *arg1, void *arg2, void *arg3)
+void 
+validate_args (int expected, void *arg1, void *arg2, void *arg3)
 {
   void *args[3] = {arg1,arg2,arg3};
   for (int i = 0; i < expected; i++)
@@ -178,7 +183,9 @@ void validate_args (int expected, void *arg1, void *arg2, void *arg3)
 
 /* Checks a user pointer is not NULL, is within user space and is 
    mapped to virtual memory. Otherwise the process is killed. */
-void validate_user_pointer (const void *vaddr){
+void 
+validate_user_pointer (const void *vaddr)
+{
   if (vaddr && is_user_vaddr(vaddr)){
     uint32_t *pd;
     pagedir_get_page(pd,vaddr);
@@ -190,7 +197,9 @@ void validate_user_pointer (const void *vaddr){
 }
 
 /* Given an fd will return the correspomding FILE* */
-file get_file(int fd){
+file 
+get_file(int fd)
+{
   pid_t pid = thread_current() -> tid;
   //create dummy elem with pid then:
   struct process_hash_item *dummy_p;
@@ -206,13 +215,17 @@ file get_file(int fd){
   return f -> file;
 }
 
-void exit (int status) {
+void 
+exit (int status) 
+{
   thread_current()->exit_status = status;
   process_exit();
   thread_exit();
 }
 
-pid_t exec (const char *cmd_line) {
+pid_t 
+exec (const char *cmd_line) 
+{
   // Assuming pid is equivalent to tid
   enum intr_level old_level;
 
@@ -223,7 +236,9 @@ pid_t exec (const char *cmd_line) {
   return pid;
 }
 
-int wait (pid_t pid) {
+int 
+wait (pid_t pid) 
+{
   // Assuming pid is equivalent to tid
   return process_wait((tid_t) pid);
 }
@@ -248,7 +263,9 @@ write (int fd, const void *buffer, unsigned size)
   return file_write (get_file(fd), buffer, size);
 }
 
-int open (const char *file){
+int 
+open (const char *file)
+{
   pid_t pid = thread_current()->tid;
   struct process_hash_item *dummy_p;
   p -> pid = pid;
@@ -263,15 +280,21 @@ int open (const char *file){
   return fd;
 }
 
-bool create (const char *file, unsigned initial_size){
+bool 
+create (const char *file, unsigned initial_size)
+{
   return filesys_create(file, initial_size);
 }
 
-bool remove (const char *file){
+bool 
+remove (const char *file)
+{
   return filesys_remove(file);
 }
 
-void close (int fd){
+void 
+close (int fd)
+{
   //Remove it from this processess hash table then 'close'
   
   struct file* file = get_file(fd);
@@ -279,7 +302,9 @@ void close (int fd){
 }
 
 
-void close (int fd){
+void 
+close (int fd)
+{
   /* Should look up the current process in the process hash table,
      to get its open files hashtable.  
      Then lookup the fd in said hashtable and get the FILE*.
