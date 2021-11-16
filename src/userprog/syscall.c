@@ -8,6 +8,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include <hash.h>
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -89,8 +90,9 @@ syscall_handler (struct intr_frame *f)
 
   switch (syscall_num)
   {
-  case SYS_HALT:;
-    //halt();
+  case SYS_HALT:
+    shutdown_power_off ();
+    break;
 
   case SYS_EXIT:
     status = *(int *) arg1;
