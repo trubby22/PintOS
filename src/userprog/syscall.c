@@ -130,7 +130,8 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_FILESIZE:;
     fd = *(int *) arg1;
-    filesize (fd);
+    file *target_file = get_file(fd);
+    file_length (target_file);
     break;
 
   case SYS_READ:;
@@ -323,5 +324,3 @@ read (int fd, const void *buffer, unsigned size)
 
   return file_read (get_file(fd), buffer, size);
 }
-
-
