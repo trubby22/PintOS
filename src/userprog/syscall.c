@@ -7,21 +7,9 @@
 #include <file.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include <hash.h>
 #include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
-
-// Need a hash table from prcoess/thread id -> files
-// Files being another hashtable from file descriptors to FILE*'s
-
-struct process_hash_item
-{
-  struct hash files;   // hashtable of files this process has file descriptors for
-  pid_t pid;           // pid calculated from the threads tid? 
-  int next_fd;         // the next fd generated for a new file, MAX == 128. Starts at 2
-  struct hash_elem *elem;
-};
 
 // Used in a hashtable to map file descriptors to FILE structs.
 struct file_hash_item

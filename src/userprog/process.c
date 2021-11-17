@@ -59,7 +59,10 @@ start_process (void *file_name_)
 {
   //Initisalise new process_hash_item
   //Has to be done once thread has started running
-  struct process_hash_item *p;
+  struct process_hash_item *p = (struct process_hash_item *) malloc(sizeof(struct process_hash_item));
+  if (p == NULL) {
+    PANIC("Failure mallocing struct process_hash_item");
+  }
   p -> next_fd = 2;
   struct hash *files;
   hash_init(*files, hash_hash_func_a, hash_less_func_a, NULL);
