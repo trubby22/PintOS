@@ -68,7 +68,7 @@ start_process (void *file_name_)
   struct hash *files;
   hash_init(*files, hash_hash_func_a, hash_less_func_a, NULL);
   p -> files = files;
-  p -> tid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
+  p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(process_table, p->elem);
 
   char *file_name = file_name_;
