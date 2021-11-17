@@ -200,12 +200,7 @@ validate_user_pointer (const void *vaddr)
 file 
 get_file(int fd)
 {
-  pid_t pid = thread_current() -> tid;
-  //create dummy elem with pid then:
-  struct process_hash_item *dummy_p;
-  dummy_p -> pid = pid; 
-  struct hash_elem *real_elem = hash_find(process_hash, &dummy_p -> elem);
-  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  struct process_hash_item *p = get_process_item();
   struct hash files = p -> files;
   //create dummy elem with fd then:
   struct file_hash_item *dummy_f;
@@ -213,6 +208,19 @@ get_file(int fd)
   real_elem = hash_find(&files, &dummy_f -> elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
+}
+
+/* Returns the table of files for the current process */
+struct process_hash_item*
+get_process_item()
+{
+  pid_t pid = thread_current() -> tid;
+  //create dummy elem with pid then:
+  struct process_hash_item *dummy_p;
+  dummy_p -> pid = pid; 
+  struct hash_elem *real_elem = hash_find(process_table, &dummy_p -> elem);
+  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  return p;
 }
 
 void 
@@ -266,16 +274,11 @@ write (int fd, const void *buffer, unsigned size)
 int 
 open (const char *file)
 {
-  pid_t pid = thread_current()->tid;
-  struct process_hash_item *dummy_p;
-  p -> pid = pid;
-  struct hash_elem real_elem = hash_find(process_hash, &dummy_p -> elem);
-  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  struct process_hash_item *p = get_process_item();
 
   struct file_hash_item *f;
   f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
-  //Do we need to explicitly make an elem for f?
   hash_insert(p -> files, f -> elem);
   return fd;
 }
@@ -296,22 +299,11 @@ void
 close (int fd)
 {
   //Remove it from this processess hash table then 'close'
-  
+  struct process_hash_item *p = get_process_item();
   struct file* file = get_file(fd);
-  file_close(file)
+  hash_delete(p->files,file);
+  file_close(file);
 }
-
-
-void 
-close (int fd)
-{
-  /* Should look up the current process in the process hash table,
-     to get its open files hashtable.  
-     Then lookup the fd in said hashtable and get the FILE*.
-     Should remove the fd from this processes hashtable, but 
-     should only close if no other files have it open */
-}
-
 
 int
 read (int fd, const void *buffer, unsigned size)

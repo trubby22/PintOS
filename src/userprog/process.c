@@ -23,8 +23,8 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-struct hash *process_hash;
-hash_init(process_hash, hash_hash_func_b, hash_less_fun_b);
+struct hash *process_table;
+hash_init(process_table, hash_hash_func_b, hash_less_fun_b);
 
 
 /* Starts a new thread running a user program loaded from
@@ -65,7 +65,7 @@ start_process (void *file_name_)
   hash_init(*files, hash_hash_func_a, hash_less_func_a, NULL);
   p -> files = files;
   p -> tid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
-  hash_insert(process_hash, p->elem);
+  hash_insert(process_table, p->elem);
 
   char *file_name = file_name_;
   struct intr_frame if_;
