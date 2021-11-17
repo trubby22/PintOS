@@ -19,13 +19,12 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 struct hash *process_table;
-hash_init(process_table, hash_hash_func_b, hash_less_fun_b);
-
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -65,8 +64,9 @@ start_process (void *file_name_)
     PANIC("Failure mallocing struct process_hash_item");
   }
   p -> next_fd = 2;
-  struct hash *files;
-  hash_init(*files, hash_hash_fun, hash_less_fun, NULL);
+  // TODO: free files when no longer needed
+  struct hash *files = (struct hash *) malloc(sizeof(struct hash));
+  hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(process_table, p->elem);
