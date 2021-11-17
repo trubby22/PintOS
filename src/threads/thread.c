@@ -189,6 +189,7 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  t->parent_tid = thread_current()->tid;
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -289,8 +290,8 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
-void free_child_resources (struct thread *t, struct thread *parent) {
-  if (t->parent_tid == parent->tid) {
+void free_child_resources (struct thread *t, void *parent) {
+  if (t->parent_tid == ((struct thread *) parent)->tid) {
     ASSERT (intr_get_level() == INTR_OFF);
 
     list_remove(&t->allelem);
@@ -317,7 +318,7 @@ thread_exit (void)
   struct thread *t = thread_current();
   t->status = THREAD_DEAD;
   lock_release(&t->alive_lock);
-  thread_foreach(free_child_resources, t);
+  thread_foreach(free_child_resources, (void *) t);
   schedule ();
   NOT_REACHED ();
 }
@@ -496,10 +497,6 @@ init_thread (struct thread *t, const char *name, int priority)
   lock->semaphore.value = 0;
 
   t->already_waited_for = false;
-  struct thread *cur;
-  if (cur = thread_current()) {
-    t->parent_tid = cur->tid;
-  }
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -619,3 +616,20 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+struct thread *find_child (tid_t child_tid) {
+  struct thread *child;
+  struct list_elem *e;
+
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if (t->tid == child_tid) {
+        child = t;
+        break;
+      }
+    }
+
+  return child;
+}

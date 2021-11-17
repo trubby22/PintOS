@@ -19,13 +19,25 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-struct hash *process_hash;
-hash_init(process_hash, hash_hash_func_b, hash_less_fun_b);
+static struct hash process_table;
 
+/* Returns the table of files for the current process */
+struct process_hash_item *
+get_process_item(void)
+{
+  pid_t pid = thread_current() -> tid;
+  //create dummy elem with pid then:
+  struct process_hash_item dummy_p;
+  dummy_p.pid = pid; 
+  struct hash_elem *real_elem = hash_find(&process_table, &dummy_p.elem);
+  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  return p;
+}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -59,13 +71,18 @@ start_process (void *file_name_)
 {
   //Initisalise new process_hash_item
   //Has to be done once thread has started running
-  struct process_hash_item *p;
+  // TODO: free process_hash_item when no longer needed
+  struct process_hash_item *p = (struct process_hash_item *) malloc(sizeof(struct process_hash_item));
+  if (p == NULL) {
+    PANIC("Failure mallocing struct process_hash_item");
+  }
   p -> next_fd = 2;
-  struct hash *files;
-  hash_init(*files, hash_hash_func_a, hash_less_func_a, NULL);
+  // TODO: free files when no longer needed
+  struct hash *files = (struct hash *) malloc(sizeof(struct hash));
+  hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
-  p -> tid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
-  hash_insert(process_hash, p->elem);
+  p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
+  hash_insert(&process_table, &p->elem);
 
   char *file_name = file_name_;
   struct intr_frame if_;
@@ -106,20 +123,9 @@ int
 process_wait (tid_t child_tid) 
 {
   enum intr_level old_level;
-
   old_level = intr_disable ();
-  struct thread *child;
-  struct list_elem *e;
 
-  for (e = list_begin (&all_list); e != list_end (&all_list);
-       e = list_next (e))
-    {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      if (t->tid == child_tid) {
-        child = t;
-        break;
-      }
-    }
+  struct thread *child = find_child(child_tid);
 
   intr_set_level (old_level);
 
