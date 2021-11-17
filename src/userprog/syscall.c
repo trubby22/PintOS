@@ -7,6 +7,7 @@
 #include "filesys/file.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/synch.h"
 #include "devices/shutdown.h"
 #include "threads/malloc.h"
 
@@ -56,11 +57,13 @@ hash_less_fun_b (const struct hash_elem *a,
   return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
 }
 
+struct semaphore filesystem_sema;
 
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  sema_init(&filesystem_sema, 1);
 }
 
 static void
@@ -104,35 +107,47 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CREATE:
     filename = *(const char **) arg1;
+    sema_down(&filesystem_sema);
     //create (file, initial_size);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_REMOVE:
     filename = *(const char **) arg1;
+    sema_down(&filesystem_sema);
     //remove (file);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_OPEN:
     filename = *(const char **) arg1;
+    sema_down(&filesystem_sema);
     //open (file);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_FILESIZE:
     fd = *(int *) arg1;
+    sema_down(&filesystem_sema);
     struct file *target_file = get_file(fd);
     file_length (target_file);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_READ:
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
+    sema_down(&filesystem_sema);
     //read (fd, buffer, length);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_WRITE:
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
+    sema_down(&filesystem_sema);
     //write (fd, buffer, length);
+    sema_up(&filesystem_sema);
     break;
 
   case SYS_SEEK:
@@ -148,7 +163,9 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CLOSE:
     fd = *(int *) arg1;
+    sema_down(&filesystem_sema);
     //close (fd);
+    sema_up(&filesystem_sema);
     break;
 
   default:
@@ -156,7 +173,7 @@ syscall_handler (struct intr_frame *f)
     break;
   }
 
-  f -> eax = result;
+  f->eax = result;
 }
 
 /* Checks that the first int expected number of args are valid */
