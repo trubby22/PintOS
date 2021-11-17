@@ -10,6 +10,8 @@
 #include "threads/synch.h"
 #include "devices/shutdown.h"
 #include "threads/malloc.h"
+#include "devices/input.h"
+#include <string.h>
 
 static void syscall_handler (struct intr_frame *);
 
@@ -303,10 +305,27 @@ int
 read (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDIN_FILENO) {
-    //input_getc();
-    return size;
+    char* console_out = (char *) buffer;
+    uint8_t cur_key = input_getc();
+    unsigned key_count = 0;
+    int offset = strlen(console_out);
+
+    while((char)cur_key != '\n') {
+      console_out[offset + key_count] = (char)cur_key;
+      key_count += 1;
+      if(key_count == size) {
+        return size;
+      }
+      cur_key = input_getc();
+    }
+    return key_count;
   }
 
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  if(hash_find(get_process_item() -> files, &dummy_f.elem) == NULL) {
+    return -1;
+  }
   return file_read (get_file(fd), (void *) buffer, size);
 }
 
