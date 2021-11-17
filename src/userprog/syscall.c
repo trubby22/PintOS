@@ -184,23 +184,9 @@ validate_user_pointer (const void *vaddr)
   exit(1);
 }
 
-/* Given an fd will return the correspomding FILE* */
-struct file 
-get_file(int fd)
-{
-  struct process_hash_item *p = get_process_item();
-  struct hash files = p -> files;
-  //create dummy elem with fd then:
-  struct file_hash_item *dummy_f;
-  dummy_f -> fd = fd;
-  struct hash_elem *real_elem = hash_find(files, &dummy_f -> elem);
-  struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
-  return f -> file;
-}
-
 /* Returns the table of files for the current process */
-struct process_hash_item*
-get_process_item()
+struct process_hash_item *
+get_process_item(void)
 {
   pid_t pid = thread_current() -> tid;
   //create dummy elem with pid then:
@@ -209,6 +195,20 @@ get_process_item()
   struct hash_elem *real_elem = hash_find(process_table, &dummy_p -> elem);
   struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
   return p;
+}
+
+/* Given an fd will return the correspomding FILE* */
+struct file *
+get_file(int fd)
+{
+  struct process_hash_item *p = get_process_item();
+  struct hash *files = p -> files;
+  //create dummy elem with fd then:
+  struct file_hash_item *dummy_f;
+  dummy_f -> fd = fd;
+  struct hash_elem *real_elem = hash_find(files, &dummy_f -> elem);
+  struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
+  return f -> file;
 }
 
 void 
@@ -268,7 +268,7 @@ open (const char *file)
   f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
   hash_insert(p -> files, f -> elem);
-  return fd;
+  return f -> fd;
 }
 
 bool 
