@@ -289,8 +289,8 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
-void free_child_resources (struct thread *t, struct thread *parent) {
-  if (t->parent_tid == parent->tid) {
+void free_child_resources (struct thread *t, void *parent) {
+  if (t->parent_tid == ((struct thread *) parent)->tid) {
     ASSERT (intr_get_level() == INTR_OFF);
 
     list_remove(&t->allelem);
@@ -317,7 +317,7 @@ thread_exit (void)
   struct thread *t = thread_current();
   t->status = THREAD_DEAD;
   lock_release(&t->alive_lock);
-  thread_foreach(free_child_resources, t);
+  thread_foreach(free_child_resources, (void *) t);
   schedule ();
   NOT_REACHED ();
 }
@@ -496,8 +496,8 @@ init_thread (struct thread *t, const char *name, int priority)
   lock->semaphore.value = 0;
 
   t->already_waited_for = false;
-  struct thread *cur;
-  if (cur = thread_current()) {
+  struct thread *cur = thread_current();
+  if (cur) {
     t->parent_tid = cur->tid;
   }
 

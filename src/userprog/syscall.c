@@ -8,6 +8,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
+#include "threads/malloc.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -78,7 +79,7 @@ syscall_handler (struct intr_frame *f)
   pid_t pid;
   int status, fd;
   const char* file;
-  unsigned position ,length;
+  unsigned position, length;
 
   switch (syscall_num)
   {
@@ -101,50 +102,50 @@ syscall_handler (struct intr_frame *f)
     result = wait (pid);
     break;
 
-  case SYS_CREATE:;
+  case SYS_CREATE:
     file = *(const char **) arg1;
     //create (file, initial_size);
     break;
 
-  case SYS_REMOVE:;
+  case SYS_REMOVE:
     file = *(const char **) arg1;
     //remove (file);
     break;
 
-  case SYS_OPEN:;
+  case SYS_OPEN:
     file = *(const char **) arg1;
     //open (file);
     break;
 
-  case SYS_FILESIZE:;
+  case SYS_FILESIZE:
     fd = *(int *) arg1;
     // filesize (fd);
     break;
 
-  case SYS_READ:;
+  case SYS_READ:
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     //read (fd, buffer, length);
     break;
 
-  case SYS_WRITE:;
+  case SYS_WRITE:
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     //write (fd, buffer, length);
     break;
 
-  case SYS_SEEK:;
+  case SYS_SEEK:
     fd = *(int *) arg1;
     position = *(unsigned *) arg2;
     //seek (fd, position);
     break;
 
-  case SYS_TELL:;
+  case SYS_TELL:
     fd = *(int *) arg1;
     //tell (fd);
     break;
 
-  case SYS_CLOSE:;
+  case SYS_CLOSE:
     fd = *(int *) arg1;
     //close (fd);
     break;
@@ -152,7 +153,6 @@ syscall_handler (struct intr_frame *f)
   default:
     printf("An error occured while evaluating syscall_num!\n");
     break;
-
   }
 
   f -> eax = result;
@@ -175,7 +175,7 @@ void
 validate_user_pointer (const void *vaddr)
 {
   if (vaddr && is_user_vaddr(vaddr)){
-    uint32_t *pd;
+    uint32_t *pd = thread_current()->pagedir;
     pagedir_get_page(pd,vaddr);
     if (pd){
       return;
@@ -191,9 +191,9 @@ get_file(int fd)
   struct process_hash_item *p = get_process_item();
   struct hash *files = p -> files;
   //create dummy elem with fd then:
-  struct file_hash_item *dummy_f;
-  dummy_f -> fd = fd;
-  struct hash_elem *real_elem = hash_find(files, &dummy_f -> elem);
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
 }
@@ -251,7 +251,8 @@ open (const char *file)
 {
   struct process_hash_item *p = get_process_item();
 
-  struct file_hash_item *f;
+  // TODO: free f once no longer needed
+  struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
   f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
   hash_insert(p -> files, &f -> elem);
@@ -288,7 +289,7 @@ read (int fd, const void *buffer, unsigned size)
     return size;
   }
 
-  return file_read (get_file(fd), buffer, size);
+  return file_read (get_file(fd), (void *) buffer, size);
 }
 
 
