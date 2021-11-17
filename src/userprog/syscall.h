@@ -30,4 +30,7 @@ pid_t exec (const char *);
 int wait (pid_t);
 int write (int fd, const void *buffer, unsigned size);
 
+unsigned hash_hash_fun(const struct hash_elem *e, void *aux UNUSED);
+bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+
 #endif /* userprog/syscall.h */

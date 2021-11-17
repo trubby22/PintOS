@@ -23,7 +23,7 @@ struct file_hash_item
 // File descriptor will calculated with some sort of counter
 // e.g. will start at 1 then tick up
 unsigned 
-hash_hash_func(const struct hash_elem *e, void *aux UNUSED)
+hash_hash_fun(const struct hash_elem *e, void *aux UNUSED)
 {
   return (unsigned) hash_entry(e, struct file_hash_item, elem) -> fd;
 }
@@ -35,7 +35,7 @@ hash_less_fun (const struct hash_elem *a,
                const struct hash_elem *b,
                void *aux)
 {
-  return hash_hash_func(a,NULL) < hash_hash_func(b,NULL);
+  return hash_hash_fun(a,NULL) < hash_hash_fun(b,NULL);
 }
 
 // the same as other one, could refactor 
