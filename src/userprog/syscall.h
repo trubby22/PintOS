@@ -23,7 +23,7 @@ struct process_hash_item
 
 unsigned hash_hash_fun(const struct hash_elem *e, void *aux UNUSED);
 bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
-unsigned hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED);
+unsigned hash_hash_fun_b(const struct hash_elem *e, void *aux UNUSED);
 bool hash_less_fun_b (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 
 void syscall_init (void);

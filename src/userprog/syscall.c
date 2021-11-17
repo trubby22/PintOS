@@ -41,7 +41,7 @@ hash_less_fun (const struct hash_elem *a,
 
 // the same as other one, could refactor 
 unsigned 
-hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED)
+hash_hash_fun_b(const struct hash_elem *e, void *aux UNUSED)
 {
   return (unsigned) hash_entry(e, struct process_hash_item, elem) -> pid;
 }
@@ -53,7 +53,7 @@ hash_less_fun_b (const struct hash_elem *a,
                  const struct hash_elem *b,
                  void *aux UNUSED)
 {
-  return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
+  return hash_hash_fun_b(a,NULL) < hash_hash_fun_b(b,NULL);
 }
 
 
