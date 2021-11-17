@@ -254,7 +254,7 @@ open (const char *file)
   struct file_hash_item *f;
   f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
-  hash_insert(p -> files, f -> elem);
+  hash_insert(p -> files, &f -> elem);
   return f -> fd;
 }
 

@@ -82,7 +82,7 @@ start_process (void *file_name_)
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
-  hash_insert(&process_table, p->elem);
+  hash_insert(&process_table, &p->elem);
 
   char *file_name = file_name_;
   struct intr_frame if_;

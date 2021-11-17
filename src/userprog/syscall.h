@@ -18,7 +18,7 @@ struct process_hash_item
   struct hash *files;   // hashtable of files this process has file descriptors for
   pid_t pid;           // pid calculated from the threads tid? 
   int next_fd;         // the next fd generated for a new file, MAX == 128. Starts at 2
-  struct hash_elem *elem;
+  struct hash_elem elem;
 };
 
 void syscall_init (void);
