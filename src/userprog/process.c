@@ -32,9 +32,9 @@ get_process_item(void)
 {
   pid_t pid = thread_current() -> tid;
   //create dummy elem with pid then:
-  struct process_hash_item *dummy_p;
-  dummy_p -> pid = pid; 
-  struct hash_elem *real_elem = hash_find(&process_table, &dummy_p -> elem);
+  struct process_hash_item dummy_p;
+  dummy_p.pid = pid; 
+  struct hash_elem *real_elem = hash_find(&process_table, &dummy_p.elem);
   struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
   return p;
 }

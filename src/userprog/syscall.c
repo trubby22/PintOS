@@ -33,7 +33,7 @@ hash_hash_fun(const struct hash_elem *e, void *aux UNUSED)
 bool 
 hash_less_fun (const struct hash_elem *a,
                const struct hash_elem *b,
-               void *aux)
+               void *aux UNUSED)
 {
   return hash_hash_fun(a,NULL) < hash_hash_fun(b,NULL);
 }
@@ -50,7 +50,7 @@ hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED)
 bool 
 hash_less_fun_b (const struct hash_elem *a,
                  const struct hash_elem *b,
-                 void *aux)
+                 void *aux UNUSED)
 {
   return hash_hash_func_b(a,NULL) < hash_hash_func_b(b,NULL);
 }

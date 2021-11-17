@@ -21,16 +21,24 @@ struct process_hash_item
   struct hash_elem elem;
 };
 
+unsigned hash_hash_fun(const struct hash_elem *e, void *aux UNUSED);
+bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+unsigned hash_hash_func_b(const struct hash_elem *e, void *aux UNUSED);
+bool hash_less_fun_b (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+
 void syscall_init (void);
 void validate_args (int expected, void *arg1, void *arg2, void *arg3);
 void validate_user_pointer (const void *vaddr);
 
+struct file *get_file(int fd);
 void exit (int);
 pid_t exec (const char *);
 int wait (pid_t);
 int write (int fd, const void *buffer, unsigned size);
-
-unsigned hash_hash_fun(const struct hash_elem *e, void *aux UNUSED);
-bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+int open (const char *file);
+bool create (const char *file, unsigned initial_size);
+bool remove (const char *file);
+void close (int fd);
+int read (int fd, const void *buffer, unsigned size);
 
 #endif /* userprog/syscall.h */
