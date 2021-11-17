@@ -24,7 +24,20 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-struct hash *process_table;
+static struct hash process_table;
+
+/* Returns the table of files for the current process */
+struct process_hash_item *
+get_process_item(void)
+{
+  pid_t pid = thread_current() -> tid;
+  //create dummy elem with pid then:
+  struct process_hash_item *dummy_p;
+  dummy_p -> pid = pid; 
+  struct hash_elem *real_elem = hash_find(&process_table, &dummy_p -> elem);
+  struct process_hash_item *p = hash_entry(real_elem, struct process_hash_item, elem);
+  return p;
+}
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -69,7 +82,7 @@ start_process (void *file_name_)
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
-  hash_insert(process_table, p->elem);
+  hash_insert(&process_table, p->elem);
 
   char *file_name = file_name_;
   struct intr_frame if_;
