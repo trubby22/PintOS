@@ -59,6 +59,7 @@ start_process (void *file_name_)
 {
   //Initisalise new process_hash_item
   //Has to be done once thread has started running
+  // TODO: free process_hash_item when no longer needed
   struct process_hash_item *p = (struct process_hash_item *) malloc(sizeof(struct process_hash_item));
   if (p == NULL) {
     PANIC("Failure mallocing struct process_hash_item");

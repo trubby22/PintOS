@@ -193,7 +193,7 @@ get_file(int fd)
   //create dummy elem with fd then:
   struct file_hash_item *dummy_f;
   dummy_f -> fd = fd;
-  real_elem = hash_find(&files, &dummy_f -> elem);
+  real_elem = hash_find(files, &dummy_f -> elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
 }
