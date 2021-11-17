@@ -329,4 +329,23 @@ read (int fd, const void *buffer, unsigned size)
   return file_read (get_file(fd), (void *) buffer, size);
 }
 
+void
+seek (int fd, unsigned position)
+{
+  if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
+    return;
+  }
+
+  get_file(fd)->pos = (off_t)position;
+  return;
+}
+
+unsigned
+tell (int fd)
+{
+  struct file *tell_file = get_file(fd);
+
+  return ((unsigned)(get_file(fd)->pos));
+}
+
 
