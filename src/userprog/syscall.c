@@ -14,7 +14,7 @@ static void syscall_handler (struct intr_frame *);
 // Used in a hashtable to map file descriptors to FILE structs.
 struct file_hash_item
 {
-  file *file;  //The actual file
+  struct file *file;  //The actual file
   int fd;      //File descriptor, for the hash function
   struct hash_elem elem;
 };
@@ -185,7 +185,7 @@ validate_user_pointer (const void *vaddr)
 }
 
 /* Given an fd will return the correspomding FILE* */
-file 
+struct file 
 get_file(int fd)
 {
   struct process_hash_item *p = get_process_item();
@@ -193,7 +193,7 @@ get_file(int fd)
   //create dummy elem with fd then:
   struct file_hash_item *dummy_f;
   dummy_f -> fd = fd;
-  real_elem = hash_find(files, &dummy_f -> elem);
+  struct hash_elem *real_elem = hash_find(files, &dummy_f -> elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
   return f -> file;
 }
