@@ -76,6 +76,7 @@ syscall_handler (struct intr_frame *f)
   pid_t pid;
   int status, fd;
   const char* filename;
+  const void* buffer;
   unsigned position, length;
 
   switch (syscall_num)
@@ -90,6 +91,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_EXEC:
+    validate_user_pointer(arg1);
     filename = *(const char **) arg1;
     result = (int) exec (filename);
     break;
@@ -100,6 +102,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_CREATE:
+    validate_user_pointer(arg1);
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
     //create (file, initial_size);
@@ -107,6 +110,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_REMOVE:
+    validate_user_pointer(arg1);
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
     //remove (file);
@@ -114,6 +118,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_OPEN:
+    validate_user_pointer(arg1); 
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
     //open (file);
@@ -129,6 +134,8 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_READ:
+    validate_user_pointer(arg2); 
+    buffer = *(const void **) arg2;
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     sema_down(&filesystem_sema);
@@ -137,6 +144,8 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_WRITE:
+    validate_user_pointer(arg2); 
+    buffer = *(const void **) arg2;
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     sema_down(&filesystem_sema);
