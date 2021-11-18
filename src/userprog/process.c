@@ -106,6 +106,9 @@ start_process (void *arguments)
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
 
+  
+  // The code below sets up the stack with the passed arguments
+
   struct argv_argc *args_ptr = (struct argv_argc *) arguments;
 
   int length_arr[4];
@@ -115,49 +118,69 @@ start_process (void *arguments)
   // Copies arguments from the cmd-line to arr
   strlcpy(argv, &args_ptr->argv, argc * 128 * sizeof(char));
 
-  // Calculates the length of each argument string
-  for (int i = 0; i < argc; i++) {
-    length_arr[i] = 0;
-    for (int j = 0; j < 128; j++) {
-      length_arr[i]++;
-      if (argv[i][j] == "\0") {
-        break;
-      }
-    }
-  }
-
   // Stack pointer - should point to the fake return address of the program
   uint32_t sp = 0;
+  // Array containing pointers to argv elements
+  char *argv_ptr_arr[argc];
+  // Array containing pointers to pointers to argv elements
+  char **argv_ptr_ptr_arr[argc];
+  // Pointer to lowest 0 added to align the address
+  uint8_t *align_addr;
+  // Null pointer sentinel
+  char **null_ptr_sentinel;
+  // Pointer to the pointer to the pointer to argv[0]
+  char ***argv_ptr;
+  // Pointer to argc
+  int *argc_ptr;
+  // Pointer to the fake return address
+  int *ret_addr;
 
-  switch (argc) {
-    case 1:
-      // Puts program name (argv[0]) on stack
-      uint32_t dest = PHYS_BASE - length_arr[0];
-      strlcpy((void *) (PHYS_BASE - length_arr[0]), argv[0], length_arr[0]);
 
-      // Aligns the next address to a multiple of 4
-      uint32_t align_size = dest % 4;
-      memset(dest + align_size, 0, align_size);
-
-      // Pointer to argv[0]
-      *((char *) (dest + align_size)) = (char *) (PHYS_BASE - length_arr[0]);
-
-      // Argv: pointer to the pointer to argv[0]
-      *((char **) (dest + align_size - 4)) = (char **) (dest + align_size);
-
-      // Argc
-      *((int *) (dest + align_size - 8)) = (int) argc;
-
-      // Return address
-      *((int *) (dest + align_size - 12)) = (int) 0;
-
-      sp = dest + align_size - 12;
-    case 2:
-    case 3:
-    case 4:
-    default:
-      PANIC("Error - the number of arguments passed is incorrect");
+  // Puts argv[i] on the stack, where 0 <= i <= argc - 1
+  for (int i = argc - 1; i >= 0; i--) {
+    if (i == argc - 1) {
+      argv_ptr_arr[i] = PHYS_BASE - length_arr[i];
+    } else {
+      argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
+    }
+    
+    strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
   }
+
+  // Aligns the next address to a multiple of 4
+  uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
+  align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
+  memset(align_addr, 0, align_size);
+
+  // Sets up null pointer sentinel
+  null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
+
+  // Puts a pointer to argv[i] on the stack, where 0 <= i <= argc - 1 
+  for (int i = argc - 1; i >= 0; i--) {
+    if (i == argc - 1) {
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) null_ptr_sentinel - sizeof(char *));
+    } else {
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char **));
+    }
+
+    memcpy(argv_ptr_ptr_arr[i], argv_ptr_arr[i], sizeof(char *));
+  }
+
+  // Sets up argv pointer
+  argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
+  memcpy(argv_ptr, argv_ptr_ptr_arr[0], sizeof(char **));
+
+  // Sets up argc on the stack
+  argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
+  memcpy(argc_ptr, argc, sizeof(int));
+
+  // Sets up fake return address
+  ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
+  memcpy(ret_addr, (int) 0, sizeof(int));
+
+  // Sets up stack pointer
+  sp = (uint32_t) ret_addr;
+
 
   char *file_name = argv[0];
   struct intr_frame if_;
