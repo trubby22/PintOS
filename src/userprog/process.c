@@ -171,18 +171,18 @@ start_process (void *arguments)
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
     strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
-    hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
+    // hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
   }
 
   // Aligns the next address to a multiple of 4
   uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
   align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
   memset(align_addr, 0, align_size);
-  hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
+  // hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
 
   // Sets up null pointer sentinel
   null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
-  hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
+  // hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
 
   // Puts a pointer to argv[i] on the stack, where 0 <= i <= argc - 1 
   for (int i = argc - 1; i >= 0; i--) {
@@ -195,26 +195,26 @@ start_process (void *arguments)
     int num = argv_ptr_arr[i];
 
     memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
-    hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
+    // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
   }
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
   int num = argv_ptr_ptr_arr[0];
   memcpy(argv_ptr, &num, sizeof(char **));
-  hex_dump (0, argv_ptr, sizeof(char **), false);
+  // hex_dump (0, argv_ptr, sizeof(char **), false);
 
   // Sets up argc on the stack
   argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
   memcpy(argc_ptr, &argc, sizeof(int));
-  hex_dump (0, argc_ptr, sizeof(int), false);
+  // hex_dump (0, argc_ptr, sizeof(int), false);
 
   int zero = 0;
 
   // Sets up fake return address
   ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
   memcpy(ret_addr, &zero, sizeof(int));
-  hex_dump (0, ret_addr, sizeof(int), false);
+  // hex_dump (0, ret_addr, sizeof(int), false);
 
   // Sets up stack pointer 
   sp = (uint32_t) ret_addr;
@@ -222,7 +222,7 @@ start_process (void *arguments)
   // Assigns stack pointer to the interrupt frame
   if_.esp = (void *) sp;
 
-  hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
+  // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
 
   /* If load failed, quit. */
   // Current PF cause
