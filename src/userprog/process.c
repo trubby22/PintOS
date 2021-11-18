@@ -76,7 +76,9 @@ process_execute (const char *cmd_args)
   }
 
   struct argv_argc arguments;
-  strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
+  for (int j = 0; j < i; j++) {
+    strlcpy(&(arguments.argv[j]), args_arr[j], 128 * sizeof(char));
+  }
   arguments.argc = i;
   arguments.cmd_args_cpy = cmd_args_cpy;
 
@@ -114,7 +116,9 @@ start_process (void *arguments)
   int argc = args_ptr->argc;
 
   // Copies arguments from the cmd-line to argv
-  strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
+  for (int i = 0; i < argc; i++) {
+    strlcpy(argv[i], &(args_ptr->argv[i]), 128 * sizeof(char));
+  }
 
   char *cmd_args_cpy = args_ptr->cmd_args_cpy;
   struct intr_frame if_;
@@ -167,15 +171,18 @@ start_process (void *arguments)
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
     strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
+    hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
   }
 
   // Aligns the next address to a multiple of 4
   uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
   align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
   memset(align_addr, 0, align_size);
+  hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
 
   // Sets up null pointer sentinel
   null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
+  hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
 
   // Puts a pointer to argv[i] on the stack, where 0 <= i <= argc - 1 
   for (int i = argc - 1; i >= 0; i--) {
@@ -186,27 +193,33 @@ start_process (void *arguments)
     }
 
     memcpy(argv_ptr_ptr_arr[i], argv_ptr_arr[i], sizeof(char *));
+    hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
   }
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
   memcpy(argv_ptr, argv_ptr_ptr_arr[0], sizeof(char **));
+  hex_dump (0, argv_ptr, sizeof(char **), false);
 
   // Sets up argc on the stack
   argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
   memcpy(argc_ptr, &argc, sizeof(int));
+  hex_dump (0, argc_ptr, sizeof(int), false);
 
   int zero = 0;
 
   // Sets up fake return address
   ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
   memcpy(ret_addr, &zero, sizeof(int));
+  hex_dump (0, ret_addr, sizeof(int), false);
 
-  // Sets up stack pointer
+  // Sets up stack pointer 
   sp = (uint32_t) ret_addr;
 
   // Assigns stack pointer to the interrupt frame
   if_.esp = (void *) sp;
+
+  hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
 
   /* If load failed, quit. */
   // Current PF cause
