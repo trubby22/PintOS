@@ -106,17 +106,28 @@ start_process (void *arguments)
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
 
-  
-  // The code below sets up the stack with the passed arguments
-
   struct argv_argc *args_ptr = (struct argv_argc *) arguments;
 
   int length_arr[4];
   char argv[4][128];
   int argc = args_ptr->argc;
 
-  // Copies arguments from the cmd-line to arr
+  // Copies arguments from the cmd-line to argv
   strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
+
+  char *file_name = argv[0];
+  struct intr_frame if_;
+  bool success;
+
+  /* Initialize interrupt frame and load executable. */
+  memset (&if_, 0, sizeof if_);
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+
+  success = load (file_name, &if_.eip, &if_.esp);
+
+  // The code below sets up the stack with the passed arguments
 
   // Stack pointer - should point to the fake return address of the program
   uint32_t sp = 0;
@@ -192,20 +203,8 @@ start_process (void *arguments)
   // Sets up stack pointer
   sp = (uint32_t) ret_addr;
 
-
-  char *file_name = argv[0];
-  struct intr_frame if_;
-  bool success;
-
-  /* Initialize interrupt frame and load executable. */
-  memset (&if_, 0, sizeof if_);
-  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
-  if_.cs = SEL_UCSEG;
-  if_.eflags = FLAG_IF | FLAG_MBS;
-
   // Assigns stack pointer to the interrupt frame
   if_.esp = (void *) sp;
-  success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
