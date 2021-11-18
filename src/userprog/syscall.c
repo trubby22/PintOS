@@ -202,7 +202,6 @@ void
 exit (int status) 
 {
   thread_current()->exit_status = status;
-  process_exit();
   thread_exit();
 }
 
