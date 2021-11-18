@@ -196,9 +196,8 @@ validate_user_pointer (const void *vaddr)
   exit(1);
 }
 
-/* Given an fd will return the correspomding FILE* */
-struct file *
-get_file(int fd)
+struct file_hash_item *
+get_file_hash_item(int fd)
 {
   struct process_hash_item *p = get_process_item();
   struct hash *files = p -> files;
@@ -207,7 +206,15 @@ get_file(int fd)
   dummy_f.fd = fd;
   struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
-  return f -> file;
+
+  return f;
+}
+
+/* Given an fd will return the correspomding FILE* */
+struct file *
+get_file(int fd)
+{
+  return get_file_hash_item(fd) -> file;
 }
 
 void 
@@ -284,20 +291,11 @@ remove (const char *file)
 void 
 close (int fd)
 {
+  struct file_hash_item *f = get_file_hash_item(fd);
+
   //Remove it from this processess hash table then 'close'
-  struct process_hash_item *p = get_process_item();
-  struct file* file_to_close = get_file(fd);
-
-  struct hash *files = p -> files;
-  //create dummy elem with fd then:
-  struct file_hash_item dummy_f;
-  dummy_f.fd = fd;
-  struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
-  struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
-
-
-  hash_delete(p->files, real_elem);
-  file_close(file_to_close);
+  hash_delete(get_process_item()->files, &f->elem);
+  file_close(f->file);
   free(f);
 }
 

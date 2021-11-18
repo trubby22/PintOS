@@ -38,6 +38,7 @@ void syscall_init (void);
 void validate_args (int expected, void *arg1, void *arg2, void *arg3);
 void validate_user_pointer (const void *vaddr);
 
+struct file_hash_item *get_file_hash_item(int fd);
 struct file *get_file(int fd);
 void exit (int);
 pid_t exec (const char *);
