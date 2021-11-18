@@ -297,7 +297,7 @@ close (int fd)
   struct file* file = get_file(fd);
   hash_delete(p->files,file);
   file_close(file);
-  free(f);
+  free(file);
 }
 
 int
