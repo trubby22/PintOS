@@ -52,20 +52,31 @@ get_process_item(void)
    new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char *cmd_args) 
 {
   char *fn_copy;
   tid_t tid;
+
+  char args_arr[4][128] = {"", "", "", ""};
+  char *token, *save_ptr;
+
+  int i = 0;
+  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+       token = strtok_r(NULL, " ", &save_ptr))
+  {
+    strlcpy(args_arr[i], token, PGSIZE);
+    i++;
+  }
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy(fn_copy, (char*) args_arr[0], PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, args_arr);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -74,12 +85,16 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *args)
 {
-  //Initisalise new process_hash_item
-  //Has to be done once thread has started running
-  // TODO: free process_hash_item when no longer needed
-  struct process_hash_item *p = (struct process_hash_item *) malloc(sizeof(struct process_hash_item));
+
+  char args_arr[4][128] = (char **) args;
+  void *file_name_ = args_arr[0];
+
+  // Initisalise new process_hash_item
+  // Has to be done once thread has started running
+  //  TODO: free process_hash_item when no longer needed
+  struct process_hash_item *p = (struct process_hash_item *)malloc(sizeof(struct process_hash_item));
   if (p == NULL) {
     PANIC("Failure mallocing struct process_hash_item");
   }
