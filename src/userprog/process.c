@@ -54,36 +54,36 @@ get_process_item(void)
 tid_t
 process_execute (const char *cmd_args) 
 {
-  char *fn_copy;
+  char *cmd_args_cpy;
   tid_t tid;
 
   char args_arr[4][128] = {"", "", "", ""};
   char *token, *save_ptr;
 
+  /* Make a copy of FILE_NAME.
+     Otherwise there's a race between the caller and load(). */
+  cmd_args_cpy = palloc_get_page (0);
+  if (cmd_args_cpy == NULL)
+    return TID_ERROR;
+  strlcpy(cmd_args_cpy, cmd_args, PGSIZE);
+
   int i = 0;
-  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     strlcpy(args_arr[i], token, PGSIZE);
     i++;
   }
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy(fn_copy, (char*) args_arr[0], PGSIZE);
-
   struct argv_argc arguments;
   strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
   arguments.argc = i;
-  arguments.file_name = fn_copy;
+  arguments.cmd_args_cpy = cmd_args_cpy;
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, &arguments);
+  tid = thread_create (args_arr[0], PRI_DEFAULT, start_process, &arguments);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (cmd_args_cpy); 
   return tid;
 }
 
@@ -116,7 +116,7 @@ start_process (void *arguments)
   // Copies arguments from the cmd-line to argv
   strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
 
-  char *file_name = args_ptr->file_name;
+  char *cmd_args_cpy = args_ptr->cmd_args_cpy;
   struct intr_frame if_;
   bool success;
 
@@ -126,7 +126,7 @@ start_process (void *arguments)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (argv[0], &if_.eip, &if_.esp);
 
   // The code below sets up the stack with the passed arguments
 
@@ -210,7 +210,7 @@ start_process (void *arguments)
 
   /* If load failed, quit. */
   // Current PF cause
-  palloc_free_page (file_name);
+  palloc_free_page (cmd_args_cpy);
   if (!success) 
     thread_exit ();
 
