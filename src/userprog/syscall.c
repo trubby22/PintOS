@@ -270,7 +270,6 @@ open (const char *file)
 {
   struct process_hash_item *p = get_process_item();
 
-  // TODO: free f once no longer needed
   struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
   f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
@@ -298,6 +297,7 @@ close (int fd)
   struct file* file = get_file(fd);
   hash_delete(p->files,file);
   file_close(file);
+  free(f);
 }
 
 int
