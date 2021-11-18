@@ -165,7 +165,6 @@ start_process (void *arguments)
     } else {
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
-    // The line below causes PFs
     strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
   }
 
@@ -194,6 +193,7 @@ start_process (void *arguments)
 
   // Sets up argc on the stack
   argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
+  // Current PF culprit
   memcpy(argc_ptr, argc, sizeof(int));
 
   // Sets up fake return address
