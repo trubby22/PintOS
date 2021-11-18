@@ -150,6 +150,8 @@ start_process (void *arguments)
 
       // Return address
       *((int *) (dest + align_size - 12)) = (int) 0;
+
+      sp = dest + align_size - 12;
     case 2:
     case 3:
     case 4:
