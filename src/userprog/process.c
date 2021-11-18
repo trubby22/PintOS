@@ -147,8 +147,6 @@ process_wait (tid_t child_tid)
 
   int exit_status = child->exit_status;
 
-  ASSERT(child->status == THREAD_DEAD);
-
   list_remove(&child->allelem);
   palloc_free_page(child);
 

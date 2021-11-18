@@ -316,8 +316,8 @@ thread_exit (void)
   intr_disable ();
   // list_remove (&thread_current()->allelem);
   struct thread *t = thread_current();
-  t->status = THREAD_DEAD;
   lock_release(&t->alive_lock);
+  t->status = THREAD_DEAD;
   thread_foreach(free_child_resources, (void *) t);
   schedule ();
   NOT_REACHED ();
