@@ -52,20 +52,35 @@ get_process_item(void)
    new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char *cmd_args) 
 {
   char *fn_copy;
   tid_t tid;
+
+  char args_arr[4][128] = {"", "", "", ""};
+  char *token, *save_ptr;
+
+  int i = 0;
+  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+       token = strtok_r(NULL, " ", &save_ptr))
+  {
+    strlcpy(args_arr[i], token, PGSIZE);
+    i++;
+  }
+
+  struct argv_argc arguments;
+  strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
+  arguments.argc = i;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
+  strlcpy(fn_copy, (char*) args_arr[0], PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, &arguments);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -74,12 +89,12 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (char **argv)
+start_process (void *arguments)
 {
-  //Initisalise new process_hash_item
-  //Has to be done once thread has started running
-  // TODO: free process_hash_item when no longer needed
-  struct process_hash_item *p = (struct process_hash_item *) malloc(sizeof(struct process_hash_item));
+  // Initisalise new process_hash_item
+  // Has to be done once thread has started running
+  //  TODO: free process_hash_item when no longer needed
+  struct process_hash_item *p = (struct process_hash_item *)malloc(sizeof(struct process_hash_item));
   if (p == NULL) {
     PANIC("Failure mallocing struct process_hash_item");
   }
@@ -91,31 +106,50 @@ start_process (char **argv)
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
 
-  int arr_lengths[4];
-  char arr[4][128];
+  struct argv_argc *args_ptr = (struct argv_argc *) arguments;
+
+  int length_arr[4];
+  char argv[4][128];
+  int argc = args_ptr->argc;
 
   // Copies arguments from the cmd-line to arr
-  strlcpy(arr, argv, 4 * 128 * sizeof(char));
+  strlcpy(argv, &args_ptr->argv, argc * 128 * sizeof(char));
 
-  for (int i = 0; i < 4; i++) {
-    arr_lengths[i] = 0;
+  // Calculates the length of each argument string
+  for (int i = 0; i < argc; i++) {
+    length_arr[i] = 0;
     for (int j = 0; j < 128; j++) {
-      if (arr[i][j] != "\0") {
-        arr_lengths[i]++;
+      length_arr[i]++;
+      if (argv[i][j] == "\0") {
+        break;
       }
     }
   }
 
-  // Calculates the number of arguments
-  int argc = 0;
-  for (int i = 0; i < 4; i++) {
-    if (arr[i][0] == "\0") {
-      argc++;
-    }
-  }
+  // Stack pointer - should point to the fake return address of the program
+  uint32_t sp = 0;
 
   switch (argc) {
     case 1:
+      // Puts program name (argv[0]) on stack
+      uint32_t dest = PHYS_BASE - length_arr[0];
+      strlcpy((void *) (PHYS_BASE - length_arr[0]), argv[0], length_arr[0]);
+
+      // Aligns the next address to a multiple of 4
+      uint32_t align_size = dest % 4;
+      memset(dest + align_size, 0, align_size);
+
+      // Pointer to argv[0]
+      *((char *) (dest + align_size)) = (char *) (PHYS_BASE - length_arr[0]);
+
+      // Argv: pointer to the pointer to argv[0]
+      *((char **) (dest + align_size - 4)) = (char **) (dest + align_size);
+
+      // Argc
+      *((int *) (dest + align_size - 8)) = (int) argc;
+
+      // Return address
+      *((int *) (dest + align_size - 12)) = (int) 0;
     case 2:
     case 3:
     case 4:
@@ -123,7 +157,7 @@ start_process (char **argv)
       PANIC("Error - the number of arguments passed is incorrect");
   }
 
-  char *file_name = file_name_;
+  char *file_name = argv[0];
   struct intr_frame if_;
   bool success;
 
@@ -132,6 +166,9 @@ start_process (char **argv)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  // Assigns stack pointer to the interrupt frame
+  if_.esp = (void *) sp;
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
