@@ -116,7 +116,7 @@ start_process (void *arguments)
   int argc = args_ptr->argc;
 
   // Copies arguments from the cmd-line to arr
-  strlcpy(argv, &args_ptr->argv, argc * 128 * sizeof(char));
+  strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
 
   // Stack pointer - should point to the fake return address of the program
   uint32_t sp = 0;
@@ -135,6 +135,16 @@ start_process (void *arguments)
   // Pointer to the fake return address
   int *ret_addr;
 
+  // Calculates the length of each argument string
+  for (int i = 0; i < argc; i++) {
+    length_arr[i] = 0;
+    for (int j = 0; j < 128; j++) {
+      length_arr[i]++;
+      if (argv[i][j] == "\0") {
+        break;
+      }
+    }
+  }
 
   // Puts argv[i] on the stack, where 0 <= i <= argc - 1
   for (int i = argc - 1; i >= 0; i--) {
@@ -143,7 +153,7 @@ start_process (void *arguments)
     } else {
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
-    
+    // The line below causes PFs
     strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
   }
 
