@@ -189,16 +189,19 @@ start_process (void *arguments)
     if (i == argc - 1) {
       argv_ptr_ptr_arr[i] = (char **) ((uint32_t) null_ptr_sentinel - sizeof(char *));
     } else {
-      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char **));
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
     }
 
-    memcpy(argv_ptr_ptr_arr[i], argv_ptr_arr[i], sizeof(char *));
+    int num = argv_ptr_arr[i];
+
+    memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
     hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
   }
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
-  memcpy(argv_ptr, argv_ptr_ptr_arr[0], sizeof(char **));
+  int num = argv_ptr_ptr_arr[0];
+  memcpy(argv_ptr, &num, sizeof(char **));
   hex_dump (0, argv_ptr, sizeof(char **), false);
 
   // Sets up argc on the stack
