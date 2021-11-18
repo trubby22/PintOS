@@ -193,12 +193,13 @@ start_process (void *arguments)
 
   // Sets up argc on the stack
   argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
-  // Current PF culprit
-  memcpy(argc_ptr, argc, sizeof(int));
+  memcpy(argc_ptr, &argc, sizeof(int));
+
+  int zero = 0;
 
   // Sets up fake return address
   ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
-  memcpy(ret_addr, (int) 0, sizeof(int));
+  memcpy(ret_addr, &zero, sizeof(int));
 
   // Sets up stack pointer
   sp = (uint32_t) ret_addr;
