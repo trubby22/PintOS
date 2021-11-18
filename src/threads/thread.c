@@ -278,7 +278,7 @@ thread_current (void)
      of stack, so a few big automatic arrays or moderate
      recursion can cause stack overflow. */
   ASSERT (is_thread (t));
-  ASSERT (t->status == THREAD_RUNNING || t->status == THREAD_DEAD);
+  ASSERT (t->status == THREAD_RUNNING);
 
   return t;
 }
@@ -316,8 +316,8 @@ thread_exit (void)
   intr_disable ();
   // list_remove (&thread_current()->allelem);
   struct thread *t = thread_current();
-  t->status = THREAD_DEAD;
   lock_release(&t->alive_lock);
+  t->status = THREAD_DEAD;
   thread_foreach(free_child_resources, (void *) t);
   schedule ();
   NOT_REACHED ();
