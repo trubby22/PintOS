@@ -6,6 +6,7 @@
 struct argv_argc {
   char argv[4][128];
   int argc;
+  char *file_name;
 };
 
 void init_hash_table (void);

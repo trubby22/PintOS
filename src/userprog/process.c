@@ -68,16 +68,17 @@ process_execute (const char *cmd_args)
     i++;
   }
 
-  struct argv_argc arguments;
-  strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
-  arguments.argc = i;
-
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy(fn_copy, (char*) args_arr[0], PGSIZE);
+
+  struct argv_argc arguments;
+  strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
+  arguments.argc = i;
+  arguments.file_name = fn_copy;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (fn_copy, PRI_DEFAULT, start_process, &arguments);
@@ -115,7 +116,7 @@ start_process (void *arguments)
   // Copies arguments from the cmd-line to argv
   strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
 
-  char *file_name = argv[0];
+  char *file_name = args_ptr->file_name;
   struct intr_frame if_;
   bool success;
 
@@ -208,6 +209,7 @@ start_process (void *arguments)
   if_.esp = (void *) sp;
 
   /* If load failed, quit. */
+  // Current PF cause
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
