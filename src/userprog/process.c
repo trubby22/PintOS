@@ -74,7 +74,7 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (char **argv)
 {
   //Initisalise new process_hash_item
   //Has to be done once thread has started running
@@ -89,8 +89,39 @@ start_process (void *file_name_)
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
-  // PF culprit
   hash_insert(&process_table, &p->elem);
+
+  int arr_lengths[4];
+  char arr[4][128];
+
+  // Copies arguments from the cmd-line to arr
+  strlcpy(arr, argv, 4 * 128 * sizeof(char));
+
+  for (int i = 0; i < 4; i++) {
+    arr_lengths[i] = 0;
+    for (int j = 0; j < 128; j++) {
+      if (arr[i][j] != "\0") {
+        arr_lengths[i]++;
+      }
+    }
+  }
+
+  // Calculates the number of arguments
+  int argc = 0;
+  for (int i = 0; i < 4; i++) {
+    if (arr[i][0] == "\0") {
+      argc++;
+    }
+  }
+
+  switch (argc) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    default:
+      PANIC("Error - the number of arguments passed is incorrect");
+  }
 
   char *file_name = file_name_;
   struct intr_frame if_;
