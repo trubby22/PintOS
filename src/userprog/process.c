@@ -57,14 +57,14 @@ process_execute (const char *cmd_args)
   char *fn_copy;
   tid_t tid;
 
-  char args_arr[4][128] = {"", "", "", ""};
   char *token, *save_ptr;
+  struct argv_argc arguments = {{"", "", "", ""}, 0, ""};
 
   int i = 0;
   for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    strlcpy(args_arr[i], token, PGSIZE);
+    strlcpy(arguments.argv[i], token, PGSIZE);
     i++;
   }
 
@@ -73,10 +73,7 @@ process_execute (const char *cmd_args)
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy(fn_copy, (char*) args_arr[0], PGSIZE);
-
-  struct argv_argc arguments;
-  strlcpy(&arguments.argv, args_arr, i * 128 * sizeof(char));
+  strlcpy(fn_copy, (char*) arguments.argv[0], PGSIZE);
   arguments.argc = i;
   arguments.file_name = fn_copy;
 
@@ -110,11 +107,7 @@ start_process (void *arguments)
   struct argv_argc *args_ptr = (struct argv_argc *) arguments;
 
   int length_arr[4];
-  char argv[4][128];
   int argc = args_ptr->argc;
-
-  // Copies arguments from the cmd-line to argv
-  strlcpy(*argv, &args_ptr->argv, 4 * 128 * sizeof(char));
 
   char *file_name = args_ptr->file_name;
   struct intr_frame if_;
@@ -153,7 +146,7 @@ start_process (void *arguments)
     for (int j = 0; j < 128; j++) {
       length_arr[i]++;
       char zero = '\0';
-      if (strcmp(&argv[i][j], &zero) == 0) {
+      if (strcmp(&args_ptr->argv[i][j], &zero) == 0) {
         break;
       }
     }
@@ -166,7 +159,7 @@ start_process (void *arguments)
     } else {
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
-    strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
+    strlcpy((char *) argv_ptr_arr[i], args_ptr->argv[i], length_arr[i]);
   }
 
   // Aligns the next address to a multiple of 4
