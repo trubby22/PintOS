@@ -140,7 +140,8 @@ start_process (void *arguments)
     length_arr[i] = 0;
     for (int j = 0; j < 128; j++) {
       length_arr[i]++;
-      if (argv[i][j] == "\0") {
+      char zero = '\0';
+      if (strcmp(&argv[i][j], &zero) == 0) {
         break;
       }
     }
