@@ -219,8 +219,7 @@ validate_user_pointer (const void *vaddr)
 {
   if (vaddr && is_user_vaddr(vaddr)){
     uint32_t *pd = thread_current()->pagedir;
-    pagedir_get_page(pd,vaddr);
-    if (pd){
+    if (pagedir_get_page(pd,vaddr)){
       return;
     }
   }
