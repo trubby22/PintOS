@@ -39,16 +39,17 @@ void validate_args (int expected, void *arg1, void *arg2, void *arg3);
 void validate_user_pointer (const void *vaddr);
 
 struct file *get_file(int fd);
-void exit (int);
-pid_t exec (const char *);
-int wait (pid_t);
-int write (int fd, const void *buffer, unsigned size);
-int open (const char *file);
-bool create (const char *file, unsigned initial_size);
-bool remove (const char *file);
-void close (int fd);
-int read (int fd, const void *buffer, unsigned size);
-void seek (int fd, unsigned position);
-unsigned tell (int fd);
+void halt_userprog (void);
+void exit_userprog (int);
+pid_t exec_userprog (const char *);
+int wait_userprog (pid_t);
+int write_userprog (int fd, const void *buffer, unsigned size);
+int open_userprog (const char *file);
+bool create_userprog (const char *file, unsigned initial_size);
+bool remove_userprog (const char *file);
+void close_userprog (int fd);
+int read_userprog (int fd, const void *buffer, unsigned size);
+void seek_userprog (int fd, unsigned position);
+unsigned tell_userprog (int fd);
 
 #endif /* userprog/syscall.h */

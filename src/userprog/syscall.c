@@ -82,30 +82,30 @@ syscall_handler (struct intr_frame *f)
   switch (syscall_num)
   {
   case SYS_HALT:
-    shutdown_power_off ();
+    halt_userprog();
     break;
 
   case SYS_EXIT:
     status = *(int *) arg1;
-    exit (status);
+    exit_userprog (status);
     break;
 
   case SYS_EXEC:
     validate_user_pointer(arg1);
     filename = *(const char **) arg1;
-    result = (int) exec (filename);
+    result = (int) exec_userprog (filename);
     break;
 
   case SYS_WAIT:
     pid = *(int *) arg1;
-    result = wait (pid);
+    result = wait_userprog (pid);
     break;
 
   case SYS_CREATE:
     validate_user_pointer(arg1);
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
-    //create (file, initial_size);
+    //create_userprog (file, initial_size);
     sema_up(&filesystem_sema);
     break;
 
@@ -113,7 +113,7 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg1);
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
-    //remove (file);
+    //remove_userprog (file);
     sema_up(&filesystem_sema);
     break;
 
@@ -121,7 +121,7 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg1); 
     filename = *(const char **) arg1;
     sema_down(&filesystem_sema);
-    //open (file);
+    //open_userprog (file);
     sema_up(&filesystem_sema);
     break;
 
@@ -139,7 +139,7 @@ syscall_handler (struct intr_frame *f)
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     sema_down(&filesystem_sema);
-    //read (fd, buffer, length);
+    //read_userprog (fd, buffer, length);
     sema_up(&filesystem_sema);
     break;
 
@@ -149,25 +149,25 @@ syscall_handler (struct intr_frame *f)
     fd = *(int *) arg1;
     length = *(unsigned *) arg3;
     sema_down(&filesystem_sema);
-    //write (fd, buffer, length);
+    //write_userprog (fd, buffer, length);
     sema_up(&filesystem_sema);
     break;
 
   case SYS_SEEK:
     fd = *(int *) arg1;
     position = *(unsigned *) arg2;
-    //seek (fd, position);
+    //seek_userprog (fd, position);
     break;
 
   case SYS_TELL:
     fd = *(int *) arg1;
-    //tell (fd);
+    //tell_userprog (fd);
     break;
 
   case SYS_CLOSE:
     fd = *(int *) arg1;
     sema_down(&filesystem_sema);
-    //close (fd);
+    //close_userprog (fd);
     sema_up(&filesystem_sema);
     break;
 
@@ -202,7 +202,7 @@ validate_user_pointer (const void *vaddr)
       return;
     }
   }
-  exit(1);
+  exit_userprog(1);
 }
 
 /* Given an fd will return the correspomding FILE* */
@@ -219,15 +219,21 @@ get_file(int fd)
   return f -> file;
 }
 
+void
+halt_userprog (void)
+{
+  shutdown_power_off ();
+}
+
 void 
-exit (int status) 
+exit_userprog (int status) 
 {
   thread_current()->exit_status = status;
   thread_exit();
 }
 
 pid_t 
-exec (const char *cmd_line) 
+exec_userprog (const char *cmd_line) 
 {
   // Assuming pid is equivalent to tid
   enum intr_level old_level;
@@ -240,14 +246,14 @@ exec (const char *cmd_line)
 }
 
 int 
-wait (pid_t pid) 
+wait_userprog (pid_t pid) 
 {
   // Assuming pid is equivalent to tid
   return process_wait((tid_t) pid);
 }
 
 int
-write (int fd, const void *buffer, unsigned size)
+write_userprog (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
@@ -267,7 +273,7 @@ write (int fd, const void *buffer, unsigned size)
 }
 
 int 
-open (const char *file)
+open_userprog (const char *file)
 {
   struct process_hash_item *p = get_process_item();
 
@@ -279,19 +285,19 @@ open (const char *file)
 }
 
 bool 
-create (const char *file, unsigned initial_size)
+create_userprog (const char *file, unsigned initial_size)
 {
   return filesys_create(file, initial_size);
 }
 
 bool 
-remove (const char *file)
+remove_userprog (const char *file)
 {
   return filesys_remove(file);
 }
 
 void 
-close (int fd)
+close_userprog (int fd)
 {
   //Remove it from this processess hash table then 'close'
   struct process_hash_item *p = get_process_item();
@@ -311,7 +317,7 @@ close (int fd)
 }
 
 int
-read (int fd, const void *buffer, unsigned size)
+read_userprog (int fd, const void *buffer, unsigned size)
 {
   if (fd == STDIN_FILENO) {
     char* console_out = (char *) buffer;
@@ -339,7 +345,7 @@ read (int fd, const void *buffer, unsigned size)
 }
 
 void
-seek (int fd, unsigned position)
+seek_userprog (int fd, unsigned position)
 {
   if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
     return;
@@ -350,7 +356,7 @@ seek (int fd, unsigned position)
 }
 
 unsigned
-tell (int fd)
+tell_userprog (int fd)
 {
   struct file *tell_file = get_file(fd);
 
