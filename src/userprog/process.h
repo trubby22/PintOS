@@ -3,6 +3,7 @@
 
 #include "threads/thread.h"
 
+void init_hash_table (void);
 struct process_hash_item *get_process_item(void);
 
 tid_t process_execute (const char *file_name);

@@ -26,6 +26,13 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
 static struct hash process_table;
 
+// Initializes hash table
+void
+init_hash_table (void) 
+{
+  hash_init(&process_table, hash_hash_fun_b, hash_less_fun_b, NULL);
+}
+
 /* Returns the table of files for the current process */
 struct process_hash_item *
 get_process_item(void)
@@ -82,6 +89,7 @@ start_process (void *file_name_)
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
+  // PF culprit
   hash_insert(&process_table, &p->elem);
 
   char *file_name = file_name_;

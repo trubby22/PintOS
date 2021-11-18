@@ -113,6 +113,7 @@ main (void)
 #ifdef USERPROG
   exception_init ();
   syscall_init ();
+  init_hash_table();
 #endif
 
   /* Start thread scheduler and enable interrupts. */
