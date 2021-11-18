@@ -85,26 +85,30 @@ syscall_handler (struct intr_frame *f)
   case SYS_EXIT:
     validate_user_pointer(arg1);
     status = *(int *) arg1;
+
     exit_userprog (status);
     break;
 
   case SYS_EXEC:
     validate_user_pointer(arg1);
     filename = *(const char **) arg1;
+
     result = (int) exec_userprog (filename);
     break;
 
   case SYS_WAIT:
     validate_user_pointer(arg1);
     pid = *(int *) arg1;
+
     result = wait_userprog (pid);
     break;
 
   case SYS_CREATE:
     validate_user_pointer(arg1);
-    filename = *(const char **) arg1;
     validate_user_pointer(arg2);
-    length = *(const char **) arg1;
+    filename = *(const char **) arg1;
+    length = *(const char **) arg2;
+
     sema_down(&filesystem_sema);
     create_userprog (filename, length);
     sema_up(&filesystem_sema);
@@ -113,6 +117,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_REMOVE:
     validate_user_pointer(arg1);
     filename = *(const char **) arg1;
+
     sema_down(&filesystem_sema);
     remove_userprog (filename);
     sema_up(&filesystem_sema);
@@ -121,6 +126,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_OPEN:
     validate_user_pointer(arg1); 
     filename = *(const char **) arg1;
+
     sema_down(&filesystem_sema);
     open_userprog (filename);
     sema_up(&filesystem_sema);
@@ -129,6 +135,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_FILESIZE:
     validate_user_pointer(arg1);
     fd = *(int *) arg1;
+
     sema_down(&filesystem_sema);
     struct file *target_file = get_file(fd);
     result = file_length (target_file);
@@ -139,9 +146,10 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg1); 
     validate_user_pointer(arg2);
     validate_user_pointer(arg3);
-    buffer = *(const void **) arg2;
     fd = *(int *) arg1;
+    buffer = *(const void **) arg2;
     length = *(unsigned *) arg3;
+
     sema_down(&filesystem_sema);
     read_userprog (fd, buffer, length);
     sema_up(&filesystem_sema);
@@ -151,9 +159,10 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg1); 
     validate_user_pointer(arg2); 
     validate_user_pointer(arg3); 
-    buffer = *(const void **) arg2;
     fd = *(int *) arg1;
+    buffer = *(const void **) arg2;
     length = *(unsigned *) arg3;
+
     sema_down(&filesystem_sema);
     write_userprog (fd, buffer, length);
     sema_up(&filesystem_sema);
@@ -164,18 +173,21 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg2); 
     fd = *(int *) arg1;
     position = *(unsigned *) arg2;
+
     seek_userprog (fd, position);
     break;
 
   case SYS_TELL:
     validate_user_pointer(arg1); 
     fd = *(int *) arg1;
+
     tell_userprog (fd);
     break;
 
   case SYS_CLOSE:
     validate_user_pointer(arg1);
     fd = *(int *) arg1; 
+    
     sema_down(&filesystem_sema);
     close_userprog (fd);
     sema_up(&filesystem_sema);
