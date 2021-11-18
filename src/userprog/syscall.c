@@ -15,14 +15,6 @@
 
 static void syscall_handler (struct intr_frame *);
 
-// Used in a hashtable to map file descriptors to FILE structs.
-struct file_hash_item
-{
-  struct file *file;  //The actual file
-  int fd;      //File descriptor, for the hash function
-  struct hash_elem elem;
-};
-
 // Hash function where the key is simply the file descriptor
 // File descriptor will calculated with some sort of counter
 // e.g. will start at 1 then tick up
@@ -294,10 +286,19 @@ close (int fd)
 {
   //Remove it from this processess hash table then 'close'
   struct process_hash_item *p = get_process_item();
-  struct file* file = get_file(fd);
-  hash_delete(p->files,file);
-  file_close(file);
-  free(file);
+  struct file* file_to_close = get_file(fd);
+
+  struct hash *files = p -> files;
+  //create dummy elem with fd then:
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
+  struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
+
+
+  hash_delete(p->files, real_elem);
+  file_close(file_to_close);
+  free(f);
 }
 
 int
