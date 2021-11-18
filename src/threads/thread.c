@@ -278,7 +278,7 @@ thread_current (void)
      of stack, so a few big automatic arrays or moderate
      recursion can cause stack overflow. */
   ASSERT (is_thread (t));
-  ASSERT (t->status == THREAD_RUNNING);
+  ASSERT (t->status == THREAD_RUNNING || t->status == THREAD_DEAD);
 
   return t;
 }
