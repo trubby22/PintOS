@@ -54,7 +54,6 @@ get_process_item(void)
 tid_t
 process_execute (const char *cmd_args) 
 {
-  char *cmd_args_cpy;
   char *f_name_cpy;
   tid_t tid;
 
@@ -62,7 +61,7 @@ process_execute (const char *cmd_args)
   struct argv_argc arguments = {{"", "", "", ""}, 0};
 
   int i = 0;
-  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
+  for (token = strtok_r((char *) cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     strlcpy(arguments.argv[i], token, PGSIZE);
@@ -81,7 +80,7 @@ process_execute (const char *cmd_args)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (f_name_cpy, PRI_DEFAULT, start_process, &arguments);
   if (tid == TID_ERROR)
-    palloc_free_page (tid); 
+    palloc_free_page (f_name_cpy); 
   return tid;
 }
 
@@ -180,7 +179,7 @@ start_process (void *arguments)
       argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
     }
 
-    int num = argv_ptr_arr[i];
+    int num = (int) argv_ptr_arr[i];
 
     memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
     // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
@@ -188,7 +187,7 @@ start_process (void *arguments)
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
-  int num = argv_ptr_ptr_arr[0];
+  int num = (int) argv_ptr_ptr_arr[0];
   memcpy(argv_ptr, &num, sizeof(char **));
   // hex_dump (0, argv_ptr, sizeof(char **), false);
 
