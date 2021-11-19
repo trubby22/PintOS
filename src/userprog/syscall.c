@@ -318,22 +318,19 @@ int
 open_userprog (const char *file)
 {
   if (strlen(file) <= 1)
-  {
     return -1;
-  }
 
   struct file *file_struct = filesys_open(file);
 
   if (!file_struct)
-  {
     return -1;
-  }
   
   struct process_hash_item *p = get_process_item();
 
   struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
   f -> fd = p -> next_fd;
   p -> next_fd++;
+  f->file = file_struct;
   hash_insert(p -> files, &f -> elem);
   return f -> fd;
 }
@@ -356,10 +353,11 @@ close_userprog (int fd)
   struct file_hash_item *f = get_file_hash_item(fd);
 
   //Remove it from this processess hash table then 'close'
-  if(hash_delete(get_process_item()->files, &f->elem)){
-    exit_userprog(-1);
-    return;
-  }
+  if(!hash_delete(get_process_item()->files, &f->elem))
+    {
+      exit_userprog(-1);
+      return;
+    }
   file_close(f->file);
   free(f);
 }
