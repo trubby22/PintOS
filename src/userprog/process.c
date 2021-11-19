@@ -269,7 +269,11 @@ process_wait (tid_t child_tid)
 
   int exit_status = child->exit_status;
 
+  old_level = intr_disable ();
+
   list_remove(&child->allelem);
+
+  intr_set_level (old_level);
   palloc_free_page(child);
 
   return exit_status;
