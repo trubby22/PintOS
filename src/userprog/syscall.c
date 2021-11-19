@@ -66,6 +66,8 @@ syscall_handler (struct intr_frame *f)
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
+  validate_user_pointer((void *) sp);
+
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
 
@@ -75,14 +77,11 @@ syscall_handler (struct intr_frame *f)
   uint32_t arg3_ptr = sp + 12;
 
   // Validates user pointers
-  if (syscall_num != SYS_HALT) {
+  if (syscall_num == SYS_CREATE || syscall_num == SYS_REMOVE || syscall_num == SYS_OPEN) {
     validate_user_pointer((const void *) arg1_ptr);
   }
-  if (syscall_num == SYS_CREATE || syscall_num == SYS_READ || syscall_num == SYS_WRITE || syscall_num == SYS_SEEK) {
-    validate_user_pointer((const void *) arg2_ptr);
-  }
   if (syscall_num == SYS_READ || syscall_num == SYS_WRITE) {
-    validate_user_pointer((const void *) arg3_ptr);
+    validate_user_pointer((const void *) arg2_ptr);
   }
   
   uint32_t result = 0;
@@ -119,6 +118,8 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CREATE:
     file = *((const char **) arg1_ptr);
+    if (!file) 
+      exit_userprog(-1);
     initial_size = *((unsigned *) arg2_ptr);
 
     sema_down(&filesystem_sema);
@@ -222,7 +223,7 @@ validate_user_pointer (const void *vaddr)
       return;
     }
   }
-  exit_userprog(1);
+  exit_userprog(-1);
 }
 
 struct file_hash_item *
@@ -234,6 +235,9 @@ get_file_hash_item(int fd)
   struct file_hash_item dummy_f;
   dummy_f.fd = fd;
   struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
+  if (!real_elem){
+    exit_userprog(-1);
+  }
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
 
   return f;
@@ -282,6 +286,9 @@ wait_userprog (pid_t pid)
 int
 write_userprog (int fd, const void *buffer, unsigned size)
 {
+  if (size == 0)
+    return 0;
+  
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
     int offset = 0;
