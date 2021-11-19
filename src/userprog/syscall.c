@@ -66,7 +66,7 @@ syscall_handler (struct intr_frame *f)
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
-  // validate_user_pointer((void *) sp);
+  validate_user_pointer((void *) sp);
 
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
@@ -217,10 +217,9 @@ validate_args (int expected, void *arg1, void *arg2, void *arg3)
 void 
 validate_user_pointer (const void *vaddr)
 {
-  uint32_t address = *(uint32_t *) vaddr;
-  if (address != NULL && is_user_vaddr(address)){
+  if (vaddr && is_user_vaddr(vaddr)){
     uint32_t *pd = thread_current()->pagedir;
-    if (pagedir_get_page(pd,address)){
+    if (pagedir_get_page(pd,vaddr)){
       return;
     }
   }
