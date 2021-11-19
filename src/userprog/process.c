@@ -234,7 +234,7 @@ start_process (void *arguments)
 
   /* If load failed, quit. */
   if (!success) 
-    thread_exit ();
+    exit_userprog (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
