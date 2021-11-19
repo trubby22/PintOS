@@ -290,8 +290,9 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
+// Frees dead children of dead parent
 void free_child_resources (struct thread *t, void *parent) {
-  if (t->parent_tid == ((struct thread *) parent)->tid) {
+  if (t->parent_tid == ((struct thread *) parent)->tid && t->status == THREAD_DEAD) {
     ASSERT (intr_get_level() == INTR_OFF);
 
     list_remove(&t->allelem);
@@ -615,19 +616,20 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-struct thread *find_child (tid_t child_tid) {
-  struct thread *child;
+// Finds a thread given a tid
+struct thread *find_by_tid (tid_t tid) {
+  struct thread *target;
   struct list_elem *e;
 
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
     {
       struct thread *t = list_entry (e, struct thread, allelem);
-      if (t->tid == child_tid) {
-        child = t;
+      if (t->tid == tid) {
+        target = t;
         break;
       }
     }
 
-  return child;
+  return target;
 }

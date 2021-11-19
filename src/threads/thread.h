@@ -150,7 +150,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-struct thread *find_child (tid_t child_tid);
+struct thread *find_by_tid (tid_t tid);
 
 void free_child_resources (struct thread *t, void *parent);
 

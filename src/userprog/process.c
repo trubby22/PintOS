@@ -261,7 +261,7 @@ process_wait (tid_t child_tid)
   enum intr_level old_level;
   old_level = intr_disable ();
 
-  struct thread *child = find_child(child_tid);
+  struct thread *child = find_by_tid(child_tid);
 
   intr_set_level (old_level);
 
