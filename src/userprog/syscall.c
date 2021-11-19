@@ -63,10 +63,13 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
+  if ((f->esp + sizeof(struct intr_frame)) > PHYS_BASE)
+    exit_userprog(-1);
+
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
-  validate_user_pointer((void *) sp);
+  // validate_user_pointer((void *) sp);
 
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
@@ -92,7 +95,7 @@ syscall_handler (struct intr_frame *f)
   pid_t pid;
   unsigned initial_size, size, position;
 
-  char *cmd_line, file;
+  char *cmd_line, *file;
   void *buffer;
 
   switch (syscall_num)
@@ -123,7 +126,7 @@ syscall_handler (struct intr_frame *f)
     initial_size = *((unsigned *) arg2_ptr);
 
     sema_down(&filesystem_sema);
-    create_userprog ((const char *) file, initial_size);
+    result = create_userprog ((const char *) file, initial_size);
     sema_up(&filesystem_sema);
     break;
 
@@ -131,7 +134,7 @@ syscall_handler (struct intr_frame *f)
     file = *((const char **) arg1_ptr);
 
     sema_down(&filesystem_sema);
-    remove_userprog ((const char *) file);
+    result = remove_userprog ((const char *) file);
     sema_up(&filesystem_sema);
     break;
 
@@ -139,12 +142,12 @@ syscall_handler (struct intr_frame *f)
     file = *((const char **) arg1_ptr);
 
     sema_down(&filesystem_sema);
-    open_userprog ((const char *) file);
+    result = open_userprog (file);
     sema_up(&filesystem_sema);
     break;
 
   case SYS_FILESIZE:
-    fd = *((int *) arg1_ptr);
+    fd = *((int *)arg1_ptr);
 
     sema_down(&filesystem_sema);
     struct file *target_file = get_file(fd);
@@ -158,7 +161,7 @@ syscall_handler (struct intr_frame *f)
     size = *((unsigned *) arg3_ptr);
 
     sema_down(&filesystem_sema);
-    read_userprog (fd, buffer, size);
+    result = read_userprog (fd, buffer, size);
     sema_up(&filesystem_sema);
     break;
 
@@ -168,7 +171,7 @@ syscall_handler (struct intr_frame *f)
     size = *((unsigned *) arg3_ptr);
 
     sema_down(&filesystem_sema);
-    write_userprog (fd, buffer, size);
+    result = write_userprog (fd, buffer, size);
     sema_up(&filesystem_sema);
     break;
 
@@ -182,7 +185,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_TELL:
     fd = *((int *) arg1_ptr);
 
-    tell_userprog (fd);
+    result = tell_userprog (fd);
     break;
 
   case SYS_CLOSE:
@@ -217,9 +220,10 @@ validate_args (int expected, void *arg1, void *arg2, void *arg3)
 void 
 validate_user_pointer (const void *vaddr)
 {
-  if (vaddr && is_user_vaddr(vaddr)){
+  uint32_t address = *((uint32_t *) vaddr);
+  if (address && is_user_vaddr(address)){
     uint32_t *pd = thread_current()->pagedir;
-    if (pagedir_get_page(pd,vaddr)){
+    if (pagedir_get_page(pd,address)){
       return;
     }
   }
@@ -303,17 +307,33 @@ write_userprog (int fd, const void *buffer, unsigned size)
     return size;
   }
 
+  if(!fd_exists(fd)) {
+    return 0;
+  }
+
   return file_write (get_file(fd), buffer, size);
 }
 
 int 
 open_userprog (const char *file)
 {
+  if (strlen(file) <= 1)
+  {
+    return -1;
+  }
+
+  struct file *file_struct = filesys_open(file);
+
+  if (!file_struct)
+  {
+    return -1;
+  }
+  
   struct process_hash_item *p = get_process_item();
 
   struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
-  f -> file = filesys_open(file);
   f -> fd = p -> next_fd;
+  p -> next_fd++;
   hash_insert(p -> files, &f -> elem);
   return f -> fd;
 }
@@ -321,9 +341,6 @@ open_userprog (const char *file)
 bool 
 create_userprog (const char *file, unsigned initial_size)
 {
-  if (initial_size == 0) {
-    return false;
-  }
   return filesys_create(file, (off_t) initial_size);
 }
 
@@ -339,7 +356,10 @@ close_userprog (int fd)
   struct file_hash_item *f = get_file_hash_item(fd);
 
   //Remove it from this processess hash table then 'close'
-  hash_delete(get_process_item()->files, &f->elem);
+  if(hash_delete(get_process_item()->files, &f->elem)){
+    exit_userprog(-1);
+    return;
+  }
   file_close(f->file);
   free(f);
 }
@@ -364,12 +384,18 @@ read_userprog (int fd, const void *buffer, unsigned size)
     return key_count;
   }
 
-  struct file_hash_item dummy_f;
-  dummy_f.fd = fd;
-  if(hash_find(get_process_item() -> files, &dummy_f.elem) == NULL) {
+  if(!fd_exists(fd)) {
     return -1;
   }
   return file_read (get_file(fd), (void *) buffer, size);
+}
+
+bool
+fd_exists(int fd)
+{
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  return hash_find(get_process_item() -> files, &dummy_f.elem) != NULL;
 }
 
 void
