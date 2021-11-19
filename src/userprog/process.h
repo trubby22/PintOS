@@ -3,9 +3,11 @@
 
 #include "threads/thread.h"
 
+// Defines the maximum length and number of arguments passed to a user program
 #define MAX_ARG_NUM 32
 #define MAX_ARG_LEN 32
 
+// Used to pass around data from process_execute to start_process
 struct argv_argc {
   char argv[MAX_ARG_NUM][MAX_ARG_LEN];
   int argc;
