@@ -107,7 +107,7 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer(arg1);
     validate_user_pointer(arg2);
     filename = *(const char **) arg1;
-    length = *(const char **) arg2;
+    length = *(unsigned *) arg2;
 
     sema_down(&filesystem_sema);
     create_userprog (filename, length);
@@ -219,8 +219,7 @@ validate_user_pointer (const void *vaddr)
 {
   if (vaddr && is_user_vaddr(vaddr)){
     uint32_t *pd = thread_current()->pagedir;
-    pagedir_get_page(pd,vaddr);
-    if (pd){
+    if (pagedir_get_page(pd,vaddr)){
       return;
     }
   }
@@ -378,8 +377,6 @@ seek_userprog (int fd, unsigned position)
 unsigned
 tell_userprog (int fd)
 {
-  struct file *tell_file = get_file(fd);
-
   return ((unsigned)(get_file(fd)->pos));
 }
 

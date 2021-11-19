@@ -54,33 +54,37 @@ get_process_item(void)
 tid_t
 process_execute (const char *cmd_args) 
 {
-  char *fn_copy;
+  char *cmd_args_cpy;
   tid_t tid;
 
   char *token, *save_ptr;
   struct argv_argc arguments = {{"", "", "", ""}, 0, ""};
 
+  /* Make a copy of FILE_NAME.
+     Otherwise there's a race between the caller and load(). */
+  cmd_args_cpy = palloc_get_page (0);
+  if (cmd_args_cpy == NULL)
+    return TID_ERROR;
+  strlcpy(cmd_args_cpy, cmd_args, PGSIZE);
+
   int i = 0;
-  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     strlcpy(arguments.argv[i], token, PGSIZE);
     i++;
   }
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy(fn_copy, (char*) arguments.argv[0], PGSIZE);
+  for (int j = 0; j < i; j++) {
+    strlcpy(&(arguments.argv[j]), args_arr[j], 128 * sizeof(char));
+  }
   arguments.argc = i;
-  arguments.file_name = fn_copy;
+  arguments.cmd_args_cpy = cmd_args_cpy;
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, &arguments);
+  tid = thread_create (args_arr[0], PRI_DEFAULT, start_process, &arguments);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (cmd_args_cpy); 
   return tid;
 }
 
@@ -119,7 +123,7 @@ start_process (void *arguments)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (argv[0], &if_.eip, &if_.esp);
 
   // The code below sets up the stack with the passed arguments
 
@@ -166,44 +170,55 @@ start_process (void *arguments)
   uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
   align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
   memset(align_addr, 0, align_size);
+  // hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
 
   // Sets up null pointer sentinel
   null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
+  // hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
 
   // Puts a pointer to argv[i] on the stack, where 0 <= i <= argc - 1 
   for (int i = argc - 1; i >= 0; i--) {
     if (i == argc - 1) {
       argv_ptr_ptr_arr[i] = (char **) ((uint32_t) null_ptr_sentinel - sizeof(char *));
     } else {
-      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char **));
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
     }
 
-    memcpy(argv_ptr_ptr_arr[i], argv_ptr_arr[i], sizeof(char *));
+    int num = argv_ptr_arr[i];
+
+    memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
+    // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
   }
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
-  memcpy(argv_ptr, argv_ptr_ptr_arr[0], sizeof(char **));
+  int num = argv_ptr_ptr_arr[0];
+  memcpy(argv_ptr, &num, sizeof(char **));
+  // hex_dump (0, argv_ptr, sizeof(char **), false);
 
   // Sets up argc on the stack
   argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
   memcpy(argc_ptr, &argc, sizeof(int));
+  // hex_dump (0, argc_ptr, sizeof(int), false);
 
   int zero = 0;
 
   // Sets up fake return address
   ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
   memcpy(ret_addr, &zero, sizeof(int));
+  // hex_dump (0, ret_addr, sizeof(int), false);
 
-  // Sets up stack pointer
+  // Sets up stack pointer 
   sp = (uint32_t) ret_addr;
 
   // Assigns stack pointer to the interrupt frame
   if_.esp = (void *) sp;
 
+  // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
+
   /* If load failed, quit. */
   // Current PF cause
-  palloc_free_page (file_name);
+  palloc_free_page (cmd_args_cpy);
   if (!success) 
     thread_exit ();
 
