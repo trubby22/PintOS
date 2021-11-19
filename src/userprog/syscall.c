@@ -307,6 +307,10 @@ write_userprog (int fd, const void *buffer, unsigned size)
     return size;
   }
 
+  if(!fd_exists(fd)) {
+    return 0;
+  }
+
   return file_write (get_file(fd), buffer, size);
 }
 
@@ -354,7 +358,7 @@ close_userprog (int fd)
   //Remove it from this processess hash table then 'close'
   if(hash_delete(get_process_item()->files, &f->elem)){
     exit_userprog(-1);
-    return 0;
+    return;
   }
   file_close(f->file);
   free(f);
@@ -380,12 +384,18 @@ read_userprog (int fd, const void *buffer, unsigned size)
     return key_count;
   }
 
-  struct file_hash_item dummy_f;
-  dummy_f.fd = fd;
-  if(hash_find(get_process_item() -> files, &dummy_f.elem) == NULL) {
+  if(!fd_exists(fd)) {
     return -1;
   }
   return file_read (get_file(fd), (void *) buffer, size);
+}
+
+bool
+fd_exists(int fd)
+{
+  struct file_hash_item dummy_f;
+  dummy_f.fd = fd;
+  return hash_find(get_process_item() -> files, &dummy_f.elem) != NULL;
 }
 
 void

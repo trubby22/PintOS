@@ -40,6 +40,7 @@ void validate_user_pointer (const void *vaddr);
 
 struct file_hash_item *get_file_hash_item(int fd);
 struct file *get_file(int fd);
+bool fd_exists(int fd);
 void halt_userprog (void);
 void exit_userprog (int);
 pid_t exec_userprog (const char *);
