@@ -255,7 +255,9 @@ halt_userprog (void)
 void 
 exit_userprog (int status) 
 {
-  thread_current()->exit_status = status;
+  struct thread *t = thread_current();
+  t->exit_status = status;
+  printf ("%s: exit(%d)\n", t->name, status);
   thread_exit();
 }
 
