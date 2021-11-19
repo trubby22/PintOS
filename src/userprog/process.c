@@ -71,8 +71,8 @@ process_execute (const char *cmd_args)
   for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    strlcpy(args_arr[i], token, PGSIZE);
-    i++;
+    strlcpy(args_arr[i], token, (strlen(token) + 1) * sizeof(char));
+    i++; 
   }
 
   struct argv_argc arguments;
@@ -168,7 +168,7 @@ start_process (void *arguments)
     if (i == argc - 1) {
       argv_ptr_arr[i] = PHYS_BASE - length_arr[i];
     } else {
-      argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
+      argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i];
     }
     strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
     // hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
