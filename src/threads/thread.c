@@ -310,11 +310,9 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  /* Remove thread from all threads list, set our status to dying,
-     and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
+  /* Set our status to dead,
+     and schedule another process.  That process will remove us only logically for now. */
   intr_disable ();
-  // list_remove (&thread_current()->allelem);
   struct thread *t = thread_current();
   lock_release(&t->alive_lock);
   t->status = THREAD_DEAD;
