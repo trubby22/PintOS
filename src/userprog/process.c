@@ -108,6 +108,7 @@ start_process (void *arguments)
   }
 
   char *cmd_args_cpy = args_ptr->cmd_args_cpy;
+  palloc_free_page (cmd_args_cpy);
 
   intr_set_level (old_level);
 
@@ -232,8 +233,6 @@ start_process (void *arguments)
   // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
 
   /* If load failed, quit. */
-  // Current PF cause
-  palloc_free_page (cmd_args_cpy);
   if (!success) 
     thread_exit ();
 
