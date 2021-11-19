@@ -6,6 +6,7 @@
 struct argv_argc {
   char argv[4][128];
   int argc;
+  char *cmd_args_cpy;
 };
 
 void init_hash_table (void);
