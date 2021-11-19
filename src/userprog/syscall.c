@@ -63,6 +63,9 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f) 
 {
+  if ((f->esp + sizeof(struct intr_frame)) > PHYS_BASE)
+    exit_userprog(-1);
+
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
