@@ -147,7 +147,7 @@ syscall_handler (struct intr_frame *f)
     break;
 
   case SYS_FILESIZE:
-    fd = *((int *) arg1_ptr);
+    fd = *((int *)arg1_ptr);
 
     sema_down(&filesystem_sema);
     struct file *target_file = get_file(fd);
@@ -329,6 +329,7 @@ open_userprog (const char *file)
 
   struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
   f -> fd = p -> next_fd;
+  p -> next_fd++;
   hash_insert(p -> files, &f -> elem);
   return f -> fd;
 }
@@ -351,7 +352,10 @@ close_userprog (int fd)
   struct file_hash_item *f = get_file_hash_item(fd);
 
   //Remove it from this processess hash table then 'close'
-  hash_delete(get_process_item()->files, &f->elem);
+  if(hash_delete(get_process_item()->files, &f->elem)){
+    exit_userprog(-1);
+    return 0;
+  }
   file_close(f->file);
   free(f);
 }
