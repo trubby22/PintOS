@@ -69,7 +69,7 @@ syscall_handler (struct intr_frame *f)
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
-  validate_user_pointer((void *) sp);
+  // validate_user_pointer((void *) sp);
 
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
@@ -95,7 +95,7 @@ syscall_handler (struct intr_frame *f)
   pid_t pid;
   unsigned initial_size, size, position;
 
-  char *cmd_line, file;
+  char *cmd_line, *file;
   void *buffer;
 
   switch (syscall_num)
@@ -126,7 +126,7 @@ syscall_handler (struct intr_frame *f)
     initial_size = *((unsigned *) arg2_ptr);
 
     sema_down(&filesystem_sema);
-    create_userprog ((const char *) file, initial_size);
+    result = create_userprog ((const char *) file, initial_size);
     sema_up(&filesystem_sema);
     break;
 
@@ -220,9 +220,10 @@ validate_args (int expected, void *arg1, void *arg2, void *arg3)
 void 
 validate_user_pointer (const void *vaddr)
 {
-  if (vaddr && is_user_vaddr(vaddr)){
+  uint32_t address = *((uint32_t *) vaddr);
+  if (address && is_user_vaddr(address)){
     uint32_t *pd = thread_current()->pagedir;
-    if (pagedir_get_page(pd,vaddr)){
+    if (pagedir_get_page(pd,address)){
       return;
     }
   }
@@ -326,9 +327,6 @@ open_userprog (const char *file)
 bool 
 create_userprog (const char *file, unsigned initial_size)
 {
-  if (initial_size == 0) {
-    return false;
-  }
   return filesys_create(file, (off_t) initial_size);
 }
 
