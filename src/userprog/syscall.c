@@ -66,6 +66,8 @@ syscall_handler (struct intr_frame *f)
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
 
+  validate_user_pointer((void *) sp);
+
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
 
@@ -119,6 +121,8 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CREATE:
     file = *((const char **) arg1_ptr);
+    if (!file) 
+      exit_userprog(-1);
     initial_size = *((unsigned *) arg2_ptr);
 
     sema_down(&filesystem_sema);
@@ -222,7 +226,7 @@ validate_user_pointer (const void *vaddr)
       return;
     }
   }
-  exit_userprog(1);
+  exit_userprog(-1);
 }
 
 struct file_hash_item *
