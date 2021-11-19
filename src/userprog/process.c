@@ -54,38 +54,33 @@ get_process_item(void)
 tid_t
 process_execute (const char *cmd_args) 
 {
-  char *cmd_args_cpy;
+  char *f_name_cpy;
   tid_t tid;
 
-  char args_arr[4][128] = {"", "", "", ""};
   char *token, *save_ptr;
-
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  cmd_args_cpy = palloc_get_page (0);
-  if (cmd_args_cpy == NULL)
-    return TID_ERROR;
-  strlcpy(cmd_args_cpy, cmd_args, PGSIZE);
+  struct argv_argc arguments = {{"", "", "", ""}, 0};
 
   int i = 0;
-  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
+  for (token = strtok_r((char *) cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    strlcpy(args_arr[i], token, PGSIZE);
+    strlcpy(arguments.argv[i], token, PGSIZE);
     i++;
   }
 
-  struct argv_argc arguments;
-  for (int j = 0; j < i; j++) {
-    strlcpy(&(arguments.argv[j]), args_arr[j], 128 * sizeof(char));
-  }
+  /* Make a copy of FILE_NAME.
+    Otherwise there's a race between the caller and load(). */
+  f_name_cpy = palloc_get_page (0);
+  if (f_name_cpy == NULL)
+    return TID_ERROR;
+  strlcpy(f_name_cpy, arguments.argv[0], PGSIZE);
+
   arguments.argc = i;
-  arguments.cmd_args_cpy = cmd_args_cpy;
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (args_arr[0], PRI_DEFAULT, start_process, &arguments);
+  tid = thread_create (f_name_cpy, PRI_DEFAULT, start_process, &arguments);
   if (tid == TID_ERROR)
-    palloc_free_page (cmd_args_cpy); 
+    palloc_free_page (f_name_cpy); 
   return tid;
 }
 
@@ -112,15 +107,8 @@ start_process (void *arguments)
   struct argv_argc *args_ptr = (struct argv_argc *) arguments;
 
   int length_arr[4];
-  char argv[4][128];
   int argc = args_ptr->argc;
 
-  // Copies arguments from the cmd-line to argv
-  for (int i = 0; i < argc; i++) {
-    strlcpy(argv[i], &(args_ptr->argv[i]), 128 * sizeof(char));
-  }
-
-  char *cmd_args_cpy = args_ptr->cmd_args_cpy;
   struct intr_frame if_;
   bool success;
 
@@ -130,7 +118,7 @@ start_process (void *arguments)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (argv[0], &if_.eip, &if_.esp);
+  success = load (args_ptr->argv[0], &if_.eip, &if_.esp);
 
   // The code below sets up the stack with the passed arguments
 
@@ -157,7 +145,7 @@ start_process (void *arguments)
     for (int j = 0; j < 128; j++) {
       length_arr[i]++;
       char zero = '\0';
-      if (strcmp(&argv[i][j], &zero) == 0) {
+      if (strcmp(&args_ptr->argv[i][j], &zero) == 0) {
         break;
       }
     }
@@ -170,8 +158,7 @@ start_process (void *arguments)
     } else {
       argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i + 1];
     }
-    strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
-    // hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
+    strlcpy((char *) argv_ptr_arr[i], args_ptr->argv[i], length_arr[i]);
   }
 
   // Aligns the next address to a multiple of 4
@@ -192,7 +179,7 @@ start_process (void *arguments)
       argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
     }
 
-    int num = argv_ptr_arr[i];
+    int num = (int) argv_ptr_arr[i];
 
     memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
     // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
@@ -200,7 +187,7 @@ start_process (void *arguments)
 
   // Sets up argv pointer
   argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
-  int num = argv_ptr_ptr_arr[0];
+  int num = (int) argv_ptr_ptr_arr[0];
   memcpy(argv_ptr, &num, sizeof(char **));
   // hex_dump (0, argv_ptr, sizeof(char **), false);
 
@@ -226,7 +213,6 @@ start_process (void *arguments)
 
   /* If load failed, quit. */
   // Current PF cause
-  palloc_free_page (cmd_args_cpy);
   if (!success) 
     thread_exit ();
 
