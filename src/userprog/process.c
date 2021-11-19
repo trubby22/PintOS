@@ -57,7 +57,7 @@ process_execute (const char *cmd_args)
   char *cmd_args_cpy;
   tid_t tid;
 
-  char args_arr[4][128] = {"", "", "", ""};
+  char args_arr[MAX_ARG_NUM][MAX_ARG_LEN];
   char *token, *save_ptr;
 
   /* Make a copy of FILE_NAME.
@@ -77,7 +77,7 @@ process_execute (const char *cmd_args)
 
   struct argv_argc arguments;
   for (int j = 0; j < i; j++) {
-    strlcpy(&(arguments.argv[j]), args_arr[j], 128 * sizeof(char));
+    strlcpy(&(arguments.argv[j]), args_arr[j], MAX_ARG_LEN * sizeof(char));
   }
   arguments.argc = i;
   arguments.cmd_args_cpy = cmd_args_cpy;
@@ -111,13 +111,13 @@ start_process (void *arguments)
 
   struct argv_argc *args_ptr = (struct argv_argc *) arguments;
 
-  int length_arr[4];
-  char argv[4][128];
+  int length_arr[MAX_ARG_NUM];
+  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
   int argc = args_ptr->argc;
 
   // Copies arguments from the cmd-line to argv
   for (int i = 0; i < argc; i++) {
-    strlcpy(argv[i], &(args_ptr->argv[i]), 128 * sizeof(char));
+    strlcpy(argv[i], &(args_ptr->argv[i]), MAX_ARG_LEN * sizeof(char));
   }
 
   char *cmd_args_cpy = args_ptr->cmd_args_cpy;
@@ -154,7 +154,7 @@ start_process (void *arguments)
   // Calculates the length of each argument string
   for (int i = 0; i < argc; i++) {
     length_arr[i] = 0;
-    for (int j = 0; j < 128; j++) {
+    for (int j = 0; j < MAX_ARG_LEN; j++) {
       length_arr[i]++;
       char zero = '\0';
       if (strcmp(&argv[i][j], &zero) == 0) {

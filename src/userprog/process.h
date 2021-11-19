@@ -3,8 +3,11 @@
 
 #include "threads/thread.h"
 
+#define MAX_ARG_NUM 32
+#define MAX_ARG_LEN 32
+
 struct argv_argc {
-  char argv[4][128];
+  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
   int argc;
   char *cmd_args_cpy;
 };
