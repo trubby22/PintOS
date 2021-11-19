@@ -94,6 +94,23 @@ process_execute (const char *cmd_args)
 static void
 start_process (void *arguments)
 {
+  // Temporarily disables interrupts to prevent parent thread from terminating and taking away access to void *arguments
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
+  struct argv_argc *args_ptr = (struct argv_argc *) arguments;
+  int argc = args_ptr->argc;
+
+  // Copies arguments from the cmd-line to argv
+  for (int i = 0; i < argc; i++) {
+    strlcpy(argv[i], &(args_ptr->argv[i]), MAX_ARG_LEN * sizeof(char));
+  }
+
+  char *cmd_args_cpy = args_ptr->cmd_args_cpy;
+
+  intr_set_level (old_level);
+
   // Initisalise new process_hash_item
   // Has to be done once thread has started running
   //  TODO: free process_hash_item when no longer needed
@@ -109,18 +126,8 @@ start_process (void *arguments)
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
 
-  struct argv_argc *args_ptr = (struct argv_argc *) arguments;
-
   int length_arr[MAX_ARG_NUM];
-  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
-  int argc = args_ptr->argc;
-
-  // Copies arguments from the cmd-line to argv
-  for (int i = 0; i < argc; i++) {
-    strlcpy(argv[i], &(args_ptr->argv[i]), MAX_ARG_LEN * sizeof(char));
-  }
-
-  char *cmd_args_cpy = args_ptr->cmd_args_cpy;
+  
   struct intr_frame if_;
   bool success;
 
