@@ -119,7 +119,7 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CREATE:
     file = *((const char **) arg1_ptr);
-    initial_size = *((unsigned *) arg3_ptr);
+    initial_size = *((unsigned *) arg2_ptr);
 
     sema_down(&filesystem_sema);
     create_userprog ((const char *) file, initial_size);
@@ -316,7 +316,10 @@ open_userprog (const char *file)
 bool 
 create_userprog (const char *file, unsigned initial_size)
 {
-  return filesys_create(file, initial_size);
+  if (initial_size == 0) {
+    return false;
+  }
+  return filesys_create(file, (off_t) initial_size);
 }
 
 bool 
