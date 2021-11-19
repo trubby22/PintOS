@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -616,10 +617,11 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-// Finds a thread given a tid
+// Finds a thread given a tid; intended for use with user programs
 struct thread *find_by_tid (tid_t tid) {
   struct thread *target;
   struct list_elem *e;
+  bool error = true;
 
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
@@ -627,9 +629,14 @@ struct thread *find_by_tid (tid_t tid) {
       struct thread *t = list_entry (e, struct thread, allelem);
       if (t->tid == tid) {
         target = t;
+        error = false;
         break;
       }
     }
+  
+  if (error) {
+    exit_userprog (-1);
+  }
 
   return target;
 }
