@@ -161,14 +161,7 @@ start_process (void *arguments)
 
   // Calculates the length of each argument string
   for (int i = 0; i < argc; i++) {
-    length_arr[i] = 0;
-    for (int j = 0; j < MAX_ARG_LEN; j++) {
-      length_arr[i]++;
-      char zero = '\0';
-      if (strcmp(&argv[i][j], &zero) == 0) {
-        break;
-      }
-    }
+    length_arr[i] = strlen((const char *) argv[i]) + 1;
   }
 
   // Puts argv[i] on the stack, where 0 <= i <= argc - 1
