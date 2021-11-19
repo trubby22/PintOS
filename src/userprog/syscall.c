@@ -264,7 +264,6 @@ exit_userprog (int status)
 pid_t 
 exec_userprog (const char *cmd_line) 
 {
-  // Assuming pid is equivalent to tid
   enum intr_level old_level;
 
   old_level = intr_disable ();
@@ -277,7 +276,6 @@ exec_userprog (const char *cmd_line)
 int 
 wait_userprog (pid_t pid) 
 {
-  // Assuming pid is equivalent to tid
   return process_wait((tid_t) pid);
 }
 
