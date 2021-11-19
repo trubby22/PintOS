@@ -80,7 +80,7 @@ syscall_handler (struct intr_frame *f)
   uint32_t arg3_ptr = sp + 12;
 
   // Validates user pointers
-  if (syscall_num == SYS_CREATE || syscall_num == SYS_REMOVE || syscall_num == SYS_OPEN) {
+  if (syscall_num == SYS_CREATE || syscall_num == SYS_REMOVE || syscall_num == SYS_OPEN || syscall_num == SYS_EXEC) {
     validate_user_pointer((const void *) arg1_ptr);
   }
   if (syscall_num == SYS_READ || syscall_num == SYS_WRITE) {
