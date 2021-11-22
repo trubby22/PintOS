@@ -68,8 +68,8 @@ syscall_handler (struct intr_frame *f)
 
   // Gets stack pointer from interrupt frame
   uint32_t sp = f->esp;
-
-  // validate_user_pointer((void *) sp);
+  
+  validate_user_pointer((void *) &sp);
 
   // Reads syscall number from stack
   int syscall_num = (int) *((int *) sp);
