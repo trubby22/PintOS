@@ -27,6 +27,15 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+struct child {
+  tid_t tid;
+  int exit_status;
+  bool load_success;
+  struct semaphore sema;
+  struct lock alive_lock;
+  struct list_elem elem;
+};
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -99,8 +108,8 @@ struct thread
     bool already_waited_for;
     // The thread acquires the lock when it's initialized and releases it when it dies to notify the parent thread in case it's waiting in process_wait
     struct lock alive_lock;
-    // Exit status that is used when the thread terminates
-    int exit_status;
+    struct list children;
+    struct child *info;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

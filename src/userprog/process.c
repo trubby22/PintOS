@@ -98,17 +98,25 @@ process_execute (const char *cmd_args)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
 
-  // sema_down(exec_sema);
-  // thread_current() -> child_success;
+  struct list_elem *e = list_front(&thread_current()->children);
+  struct child *child = list_entry (e, struct child, elem);
+
+  sema_down(&child->sema);
+
+  // By this line the child has already loaded its executable - so we know whether that was a success or not
+
+  if (!child->exit_status) {
+    tid = TID_ERROR;
+  }
 
   // Free malloc'ed resources in case of failure
   if (tid == TID_ERROR) {
     palloc_free_page (file_name);
     while (!list_empty (args_list)) {
-    struct list_elem *e = list_pop_front (args_list);
-    struct arg *arg = list_entry (e, struct arg, elem);
-    free(arg);
-  }
+      struct list_elem *e = list_pop_front (args_list);
+      struct arg *arg = list_entry (e, struct arg, elem);
+      free(arg);
+    }
   
   free(args_list);
   }
@@ -154,7 +162,10 @@ start_process (void *args_list)
 
   success = load (function_name, &if_.eip, &if_.esp);
 
-  // sema_up(exec_sema);
+  struct thread *t = thread_current();
+  t->info->load_success = success;
+  // Upping the sema on the line below gives control back to the parent
+  sema_up(&t->info->sema);
 
   // Initializes the stack and saves stack pointer in interrupt frame
   if_.esp = init_stack((struct list *) args_list);

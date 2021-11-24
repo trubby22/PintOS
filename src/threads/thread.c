@@ -181,7 +181,7 @@ thread_create (const char *name, int priority,
   enum intr_level old_level;
 
   ASSERT (function != NULL);
-
+  
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
@@ -191,6 +191,17 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   t->parent_tid = thread_current()->tid;
+  
+  struct child *child = malloc(sizeof(struct child));
+  if (child == NULL) {
+    return TID_ERROR;
+  }
+  lock_init(&child->alive_lock);
+  child->alive_lock.holder = t;
+  sema_init(&child->sema, 0);
+
+  t->info = child;
+  list_push_front(&thread_current()->children, &child->elem);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
