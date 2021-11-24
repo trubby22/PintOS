@@ -23,6 +23,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static void *init_stack(struct list *args_list);
 
 static struct hash process_table;
 
@@ -53,68 +54,69 @@ get_process_item(void)
 tid_t
 process_execute (const char *cmd_args) 
 {
-  char *cmd_args_cpy;
   tid_t tid;
 
-  char args_arr[MAX_ARG_NUM][MAX_ARG_LEN];
-  char *token, *save_ptr;
+  // Allocate list of arguments
+  struct list *args_list = malloc(sizeof(struct list));
+  if (args_list == NULL) {
+    return TID_ERROR;
+  }
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  cmd_args_cpy = palloc_get_page (0);
-  if (cmd_args_cpy == NULL)
+  char *fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
     return TID_ERROR;
-  strlcpy(cmd_args_cpy, cmd_args, PGSIZE);
 
+
+  // Tokenize the command line
+  char *token, *save_ptr;
   int i = 0;
-  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    strlcpy(args_arr[i], token, (strlen(token) + 1) * sizeof(char));
-    i++; 
-  }
+    char *str = malloc(sizeof(token));
+    if (str == NULL) {
+      return TID_ERROR;
+    }
+    strlcpy(str, token, (strlen(token) + 1) * sizeof(char));
 
-  struct argv_argc arguments;
-  for (int j = 0; j < i; j++) {
-    strlcpy(&(arguments.argv[j]), args_arr[j], MAX_ARG_LEN * sizeof(char));
+    struct arg *arg = malloc(sizeof(struct arg));
+    if (arg == NULL) {
+      return TID_ERROR;
+    }
+    arg->str = str;
+
+    list_push_back(args_list, &arg->elem);
+
+    if (i == 0) {
+      strlcpy (fn_copy, str, PGSIZE);
+    }
   }
-  arguments.argc = i;
-  arguments.cmd_args_cpy = cmd_args_cpy;
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (args_arr[0], PRI_DEFAULT, start_process, &arguments);
-  // sema_down(exec_sema);
+  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, args_list);
 
+  // sema_down(exec_sema);
   // thread_current() -> child_success;
 
-  if (tid == TID_ERROR)
-    palloc_free_page (cmd_args_cpy); 
+  if (tid == TID_ERROR) {
+    palloc_free_page (fn_copy);
+    while (!list_empty (&args_list)) {
+       struct list_elem *e = list_pop_front (&args_list);
+       free(e);
+    }
+    free(args_list);
+  }
+
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *arguments)
+start_process (void *args_list)
 {
-  // Temporarily disables interrupts to prevent parent thread from terminating and taking away access to void *arguments
-  enum intr_level old_level;
-  old_level = intr_disable ();
-
-  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
-  struct argv_argc *args_ptr = (struct argv_argc *) arguments;
-  int argc = args_ptr->argc;
-
-  // Copies arguments from the cmd-line to argv
-  for (int i = 0; i < argc; i++) {
-    strlcpy(argv[i], &(args_ptr->argv[i]), MAX_ARG_LEN * sizeof(char));
-  }
-
-  char *cmd_args_cpy = args_ptr->cmd_args_cpy;
-  palloc_free_page (cmd_args_cpy);
-
-  intr_set_level (old_level);
-
   // Initisalise new process_hash_item
   // Has to be done once thread has started running
   //  TODO: free process_hash_item when no longer needed
@@ -125,12 +127,13 @@ start_process (void *arguments)
   p -> next_fd = 2;
   // TODO: free files when no longer needed
   struct hash *files = (struct hash *) malloc(sizeof(struct hash));
+  if (files == NULL) {
+    PANIC("Failure mallocing struct hash");
+  }
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
-
-  int length_arr[MAX_ARG_NUM];
   
   struct intr_frame if_;
   bool success;
@@ -141,94 +144,14 @@ start_process (void *arguments)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (argv[0], &if_.eip, &if_.esp);
+  char *function_name = list_front(args_list);
+
+  success = load (function_name, &if_.eip, &if_.esp);
 
   // sema_up(exec_sema);
 
-  // The code below sets up the stack with the passed arguments
-
-  // Stack pointer - should point to the fake return address of the program
-  uint32_t sp = 0;
-  // Array containing pointers to argv elements
-  char *argv_ptr_arr[argc];
-  // Array containing pointers to pointers to argv elements
-  char **argv_ptr_ptr_arr[argc];
-  // Pointer to lowest 0 added to align the address
-  uint8_t *align_addr;
-  // Null pointer sentinel
-  char **null_ptr_sentinel;
-  // Pointer to the pointer to the pointer to argv[0]
-  char ***argv_ptr;
-  // Pointer to argc
-  int *argc_ptr;
-  // Pointer to the fake return address
-  int *ret_addr;
-
-  // Calculates the length of each argument string
-  for (int i = 0; i < argc; i++) {
-    length_arr[i] = strlen((const char *) argv[i]) + 1;
-  }
-
-  // Puts argv[i] on the stack, where 0 <= i <= argc - 1
-  for (int i = argc - 1; i >= 0; i--) {
-    if (i == argc - 1) {
-      argv_ptr_arr[i] = PHYS_BASE - length_arr[i];
-    } else {
-      argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i];
-    }
-    strlcpy((char *) argv_ptr_arr[i], argv[i], length_arr[i]);
-    // hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
-  }
-
-  // Aligns the next address to a multiple of 4
-  uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
-  align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
-  memset(align_addr, 0, align_size);
-  // hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
-
-  // Sets up null pointer sentinel
-  null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
-  // hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
-
-  // Puts a pointer to argv[i] on the stack, where 0 <= i <= argc - 1 
-  for (int i = argc - 1; i >= 0; i--) {
-    if (i == argc - 1) {
-      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) null_ptr_sentinel - sizeof(char *));
-    } else {
-      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
-    }
-
-    int num = argv_ptr_arr[i];
-
-    memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
-    // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
-  }
-
-  // Sets up argv pointer
-  argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
-  int num = argv_ptr_ptr_arr[0];
-  memcpy(argv_ptr, &num, sizeof(char **));
-  // hex_dump (0, argv_ptr, sizeof(char **), false);
-
-  // Sets up argc on the stack
-  argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
-  memcpy(argc_ptr, &argc, sizeof(int));
-  // hex_dump (0, argc_ptr, sizeof(int), false);
-
-  int zero = 0;
-
-  // Sets up fake return address
-  ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
-  memcpy(ret_addr, &zero, sizeof(int));
-  // hex_dump (0, ret_addr, sizeof(int), false);
-
-  // Sets up stack pointer 
-  sp = (uint32_t) ret_addr;
-
-  // Assigns stack pointer to the interrupt frame
-  if_.esp = (void *) sp;
-
-  // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
+  // Initializes the stack and saves stack pointer in interrupt frame
+  if_.esp = init_stack((struct list *) args_list);  
 
   /* If load failed, quit. */
   if (!success) 
@@ -643,6 +566,108 @@ setup_stack (void **esp)
         palloc_free_page (kpage);
     }
   return success;
+}
+
+// Puts cmd line arguments on the stack
+static void *init_stack(struct list *args_list) {
+  // Stack pointer - should point to the fake return address of the program
+  uint32_t sp = 0;
+
+  int size = list_size(args_list);
+  int length_arr[size];
+
+  // Array containing pointers to argv elements
+  char *argv_ptr_arr[size];
+  // Pointer to lowest 0 added to align the address
+  uint8_t *align_addr;
+  // Null pointer sentinel
+  char **null_ptr_sentinel;
+  // Array containing pointers to pointers to argv elements
+  char **argv_ptr_ptr_arr[size];
+  // Pointer to the pointer to the pointer to argv[0]
+  char ***argv_ptr;
+  // Pointer to argc
+  int *argc_ptr;
+  // Pointer to the fake return address
+  int *ret_addr;
+
+  // Calculates the length of each argument string
+  int i = 0;
+  struct list_elem *e;
+  for (e = list_begin (args_list); e != list_end (args_list);
+        e = list_next (e)) {
+    struct arg *arg = list_entry (e, struct arg, elem);
+    length_arr[i] = strlen((const char *) arg->str) + 1;
+    i++;
+  }
+
+  // Sets up argv[i] adresses
+  for (int i = size - 1; i >= 0; i--) {
+    if (i == size - 1) {
+      argv_ptr_arr[i] = PHYS_BASE - length_arr[i];
+    } else {
+      argv_ptr_arr[i] = argv_ptr_arr[i + 1] - length_arr[i];
+    }
+  }
+
+  // Puts argv[i] on the stack, where 0 <= i <= size - 1
+  i = 0;
+  for (e = list_begin (args_list); e != list_end (args_list);
+        e = list_next (e)) {
+    struct arg *arg = list_entry (e, struct arg, elem);
+    strlcpy((char *) argv_ptr_arr[i], arg->str, length_arr[i]);
+    // hex_dump (0, argv_ptr_arr[i], length_arr[i], true);
+    i++;
+  }
+
+  // Aligns the next address to a multiple of 4
+  uint32_t align_size = ((uint32_t) argv_ptr_arr) % 4;
+  align_addr = (uint8_t *) (argv_ptr_arr[0] - align_size);
+  memset(align_addr, 0, align_size);
+  // hex_dump (0, align_addr, align_size * sizeof(uint8_t), false);
+
+  // Sets up null pointer sentinel
+  null_ptr_sentinel = (char **) ((uint32_t) align_addr - sizeof(char *));
+  // hex_dump (0, null_ptr_sentinel, sizeof(char *), false);
+
+  // Puts a pointer to argv[i] on the stack, where 0 <= i <= size - 1 
+  for (int i = size - 1; i >= 0; i--) {
+    if (i == size - 1) {
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) null_ptr_sentinel - sizeof(char *));
+    } else {
+      argv_ptr_ptr_arr[i] = (char **) ((uint32_t) argv_ptr_ptr_arr[i + 1] - sizeof(char *));
+    }
+
+    int num = argv_ptr_arr[i];
+
+    memcpy(argv_ptr_ptr_arr[i], &num, sizeof(char *));
+    // hex_dump (0, argv_ptr_ptr_arr[i], sizeof(char *), false);
+  }
+
+  // Sets up argv pointer
+  argv_ptr = (char ***) ((uint32_t) argv_ptr_ptr_arr[0] - sizeof(char **));
+  int num = argv_ptr_ptr_arr[0];
+  memcpy(argv_ptr, &num, sizeof(char **));
+  // hex_dump (0, argv_ptr, sizeof(char **), false);
+
+  // Sets up argc on the stack
+  argc_ptr = (int *) ((uint32_t) argv_ptr - sizeof(char ***));
+  memcpy(argc_ptr, &size, sizeof(int));
+  // hex_dump (0, argc_ptr, sizeof(int), false);
+
+  int zero = 0;
+
+  // Sets up fake return address
+  ret_addr = (int *) ((uint32_t) argc_ptr - sizeof(int *));
+  memcpy(ret_addr, &zero, sizeof(int));
+  // hex_dump (0, ret_addr, sizeof(int), false);
+
+  // Sets up stack pointer 
+  sp = (uint32_t) ret_addr;
+
+  // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
+
+  return (void *) sp;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

@@ -272,13 +272,7 @@ exit_userprog (int status)
 pid_t 
 exec_userprog (const char *cmd_line) 
 {
-  enum intr_level old_level;
-
-  old_level = intr_disable ();
-  pid_t pid = (pid_t) process_execute(cmd_line); 
-  intr_set_level (old_level);
-
-  return pid;
+  return (pid_t) process_execute(cmd_line);
 }
 
 int 

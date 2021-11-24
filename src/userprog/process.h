@@ -14,6 +14,11 @@ struct argv_argc {
   char *cmd_args_cpy;
 };
 
+struct arg {
+  char *str;
+  struct list_elem elem;
+};
+
 void init_hash_table (void);
 struct process_hash_item *get_process_item(void);
 
