@@ -13,8 +13,6 @@ enum thread_status
     THREAD_READY,       /* Not running but ready to run. */
     THREAD_BLOCKED,     /* Waiting for an event to trigger. */
     THREAD_DYING,       /* About to be destroyed. */
-    // Dead but kept around for retrieving exit_status
-    THREAD_DEAD         
   };
 
 /* Thread identifier type.
@@ -96,7 +94,6 @@ struct thread
   {
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
-    tid_t parent_tid;                   /* Parent thread identifier. */
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
@@ -104,10 +101,6 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     //struct page_table pge_tbl;          /* Thread's virtual page table */
 
-    // Is true if process_wait has been called on this thread
-    bool already_waited_for;
-    // The thread acquires the lock when it's initialized and releases it when it dies to notify the parent thread in case it's waiting in process_wait
-    struct lock alive_lock;
     struct list children;
     struct child *info;
 
@@ -159,8 +152,6 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
-struct thread *find_by_tid (tid_t tid);
 
 void free_child_resources (struct thread *t, void *parent);
 

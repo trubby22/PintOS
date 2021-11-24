@@ -259,8 +259,9 @@ void
 exit_userprog (int status) 
 {
   struct thread *t = thread_current();
-  t->exit_status = status;
+  t->info->exit_status = status;
   printf ("%s: exit(%d)\n", t->name, status);
+  lock_release(&t->info->alive_lock);
   thread_exit();
 }
 

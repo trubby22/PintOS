@@ -190,7 +190,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  t->parent_tid = thread_current()->tid;
   
   struct child *child = malloc(sizeof(struct child));
   if (child == NULL) {
@@ -302,16 +301,6 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
-// Frees dead children of dead parent
-void free_child_resources (struct thread *t, void *parent) {
-  if (t->parent_tid == ((struct thread *) parent)->tid && t->status == THREAD_DEAD) {
-    ASSERT (intr_get_level() == INTR_OFF);
-
-    list_remove(&t->allelem);
-    palloc_free_page(t);
-  }
-}
-
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
@@ -323,13 +312,12 @@ thread_exit (void)
   process_exit ();
 #endif
 
-  /* Set our status to dead,
-     and schedule another process.  That process will remove us only logically for now. */
+  /* Remove thread from all threads list, set our status to dying,
+     and schedule another process.  That process will destroy us
+     when it calls thread_schedule_tail(). */
   intr_disable ();
-  struct thread *t = thread_current();
-  lock_release(&t->alive_lock);
-  t->status = THREAD_DEAD;
-  thread_foreach(free_child_resources, (void *) t);
+  list_remove (&thread_current()->allelem);
+  thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
 }
@@ -502,13 +490,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  struct lock *lock = &t->alive_lock;
-  lock_init (lock);
-  lock->holder = t;
-  lock->semaphore.value = 0;
-
-  t->already_waited_for = false;
-
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -627,27 +608,3 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
-
-// Finds a thread given a tid; intended for use with user programs
-struct thread *find_by_tid (tid_t tid) {
-  struct thread *target;
-  struct list_elem *e;
-  bool error = true;
-
-  for (e = list_begin (&all_list); e != list_end (&all_list);
-       e = list_next (e))
-    {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      if (t->tid == tid) {
-        target = t;
-        error = false;
-        break;
-      }
-    }
-  
-  if (error) {
-    exit_userprog (-1);
-  }
-
-  return target;
-}

@@ -205,29 +205,32 @@ start_process (void *args_list)
 int
 process_wait (tid_t child_tid) 
 {
-  enum intr_level old_level;
-  old_level = intr_disable ();
+  struct thread *t = thread_current();
+  struct list *list = &t->children;
 
-  struct thread *child = find_by_tid(child_tid);
+  struct child *target;
+  struct list_elem *e;
 
-  intr_set_level (old_level);
+  for (e = list_begin (list); e != list_end (list);
+       e = list_next (e))
+    {
+      struct child *child = list_entry (e, struct child, elem);
+      if (child->tid == child_tid) {
+        target = child;
+        break;
+      }
+    }
 
-  if (!child || child->parent_tid != thread_current()->tid || child->already_waited_for) {
+  if (!target) {
     return -1;
   }
 
-  if (child->status != THREAD_DEAD) {
-    lock_acquire(&child->alive_lock);
-  }
+  lock_acquire(&target->alive_lock);
 
-  int exit_status = child->exit_status;
+  int exit_status = target->exit_status;
 
-  old_level = intr_disable ();
-
-  list_remove(&child->allelem);
-
-  intr_set_level (old_level);
-  palloc_free_page(child);
+  list_remove(&t->children);
+  free(target);
 
   return exit_status;
 }
