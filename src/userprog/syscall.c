@@ -121,13 +121,9 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_CREATE:
     file = *((const char **) arg1_ptr);
-    if (!file) 
-      exit_userprog(-1);
     initial_size = *((unsigned *) arg2_ptr);
 
-    sema_down(&filesystem_sema);
     result = create_userprog ((const char *) file, initial_size);
-    sema_up(&filesystem_sema);
     break;
 
   case SYS_REMOVE:
@@ -347,7 +343,14 @@ open_userprog (const char *file)
 bool 
 create_userprog (const char *file, unsigned initial_size)
 {
-  return filesys_create(file, (off_t) initial_size);
+  if (!file) 
+    exit_userprog(-1);
+
+  sema_down(&filesystem_sema);
+  bool success = filesys_create(file, (off_t) initial_size);
+  sema_up(&filesystem_sema);
+
+  return success;
 }
 
 bool 
