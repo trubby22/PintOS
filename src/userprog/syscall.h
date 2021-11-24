@@ -38,8 +38,8 @@ void syscall_init (void);
 void validate_args (int expected, void *arg1, void *arg2, void *arg3);
 void validate_user_pointer (const void *vaddr);
 
-struct file_hash_item *get_file_hash_item(int fd);
-struct file *get_file(int fd);
+struct file_hash_item *get_file_hash_item_or_null(int fd);
+struct file *get_file_or_null(int fd);
 bool fd_exists(int fd);
 void halt_userprog (void);
 void exit_userprog (int);

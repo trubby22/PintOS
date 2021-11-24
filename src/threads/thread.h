@@ -93,7 +93,7 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
-    struct page_table pge_tbl;          /* Thread's virtual page table */
+    //struct page_table pge_tbl;          /* Thread's virtual page table */
 
     // Is true if process_wait has been called on this thread
     bool already_waited_for;

@@ -150,7 +150,11 @@ syscall_handler (struct intr_frame *f)
     fd = *((int *)arg1_ptr);
 
     sema_down(&filesystem_sema);
-    struct file *target_file = get_file(fd);
+    struct file *target_file = get_file_or_null(fd);
+    if(target_file == NULL) {
+      exit_userprog(-1);
+      break;
+    }
     result = file_length (target_file);
     sema_up(&filesystem_sema);
     break;
@@ -231,7 +235,7 @@ validate_user_pointer (const void *vaddr)
 }
 
 struct file_hash_item *
-get_file_hash_item(int fd)
+get_file_hash_item_or_null(int fd)
 {
   struct process_hash_item *p = get_process_item();
   struct hash *files = p -> files;
@@ -239,8 +243,8 @@ get_file_hash_item(int fd)
   struct file_hash_item dummy_f;
   dummy_f.fd = fd;
   struct hash_elem *real_elem = hash_find(files, &dummy_f.elem);
-  if (!real_elem){
-    exit_userprog(-1);
+  if (!real_elem) {
+    return NULL;
   }
   struct file_hash_item *f = hash_entry(real_elem, struct file_hash_item, elem);
 
@@ -249,9 +253,13 @@ get_file_hash_item(int fd)
 
 /* Given an fd will return the correspomding FILE* */
 struct file *
-get_file(int fd)
+get_file_or_null(int fd)
 {
-  return get_file_hash_item(fd) -> file;
+  struct file_hash_item *hash_item = get_file_hash_item_or_null(fd);
+  if (!hash_item) {
+    return NULL;
+  }
+  return hash_item -> file;
 }
 
 void
@@ -307,11 +315,12 @@ write_userprog (int fd, const void *buffer, unsigned size)
     return size;
   }
 
-  if(!fd_exists(fd)) {
+  struct file *file = get_file_or_null(fd);
+  if(file == NULL) {
     return 0;
   }
 
-  return file_write (get_file(fd), buffer, size);
+  return file_write (file, buffer, size);
 }
 
 int 
@@ -350,14 +359,18 @@ remove_userprog (const char *file)
 void 
 close_userprog (int fd)
 {
-  struct file_hash_item *f = get_file_hash_item(fd);
+  struct file_hash_item *f = get_file_hash_item_or_null(fd);
+  if(f == NULL) {
+    exit_userprog(-1);
+    return;
+  }
 
   //Remove it from this processess hash table then 'close'
   if(!hash_delete(get_process_item()->files, &f->elem))
-    {
-      exit_userprog(-1);
-      return;
-    }
+  {
+    exit_userprog(-1);
+    return;
+  }
   file_close(f->file);
   free(f);
 }
@@ -382,18 +395,11 @@ read_userprog (int fd, const void *buffer, unsigned size)
     return key_count;
   }
 
-  if(!fd_exists(fd)) {
+  struct file *file = get_file_or_null(fd);
+  if(file == NULL) {
     return -1;
   }
-  return file_read (get_file(fd), (void *) buffer, size);
-}
-
-bool
-fd_exists(int fd)
-{
-  struct file_hash_item dummy_f;
-  dummy_f.fd = fd;
-  return hash_find(get_process_item() -> files, &dummy_f.elem) != NULL;
+  return file_read (file, (void *) buffer, size);
 }
 
 void
@@ -403,14 +409,26 @@ seek_userprog (int fd, unsigned position)
     return;
   }
 
-  get_file(fd)->pos = (off_t)position;
+  struct file *file = get_file_or_null(fd);
+  if(file == NULL) {
+    exit_userprog(-1);
+    return;
+  }
+
+  file->pos = (off_t)position;
   return;
 }
 
 unsigned
 tell_userprog (int fd)
 {
-  return ((unsigned)(get_file(fd)->pos));
+  struct file *file = get_file_or_null(fd);
+  if(file == NULL) {
+    exit_userprog(-1);
+    return;
+  }
+
+  return ((unsigned)(file->pos));
 }
 
 
