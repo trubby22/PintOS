@@ -83,6 +83,10 @@ process_execute (const char *cmd_args)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (args_arr[0], PRI_DEFAULT, start_process, &arguments);
+  // sema_down(exec_sema);
+
+  // thread_current() -> child_success;
+
   if (tid == TID_ERROR)
     palloc_free_page (cmd_args_cpy); 
   return tid;
@@ -138,6 +142,8 @@ start_process (void *arguments)
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   success = load (argv[0], &if_.eip, &if_.esp);
+
+  // sema_up(exec_sema);
 
   // The code below sets up the stack with the passed arguments
 
