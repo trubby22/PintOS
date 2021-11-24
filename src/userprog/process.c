@@ -61,18 +61,25 @@ process_execute (const char *cmd_args)
   if (args_list == NULL) {
     return TID_ERROR;
   }
+  list_init(args_list);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  char *fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  char *file_name = palloc_get_page (0);
+  if (file_name == NULL)
     return TID_ERROR;
 
+  // Make a copy of cmd_args so that the correct process name is displayed at the end
+  char *cmd_args_cpy = malloc(strlen(cmd_args) * sizeof(char));
+  if (cmd_args_cpy == NULL)
+    return TID_ERROR;
+
+  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
 
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
-  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     char *str = malloc(sizeof(token));
@@ -90,18 +97,20 @@ process_execute (const char *cmd_args)
     list_push_back(args_list, &arg->elem);
 
     if (i == 0) {
-      strlcpy (fn_copy, str, PGSIZE);
+      strlcpy (file_name, token, PGSIZE);
     }
   }
 
+  free(cmd_args_cpy);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (fn_copy, PRI_DEFAULT, start_process, args_list);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
 
   // sema_down(exec_sema);
   // thread_current() -> child_success;
 
   if (tid == TID_ERROR) {
-    palloc_free_page (fn_copy);
+    palloc_free_page (file_name);
     while (!list_empty (&args_list)) {
        struct list_elem *e = list_pop_front (&args_list);
        free(e);
@@ -144,7 +153,9 @@ start_process (void *args_list)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  char *function_name = list_front(args_list);
+  struct list_elem *e = list_front(args_list);
+  struct arg *arg = list_entry (e, struct arg, elem);
+  const char *function_name = (const char *) arg->str;
 
   success = load (function_name, &if_.eip, &if_.esp);
 
