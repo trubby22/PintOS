@@ -69,17 +69,10 @@ process_execute (const char *cmd_args)
   if (file_name == NULL)
     return TID_ERROR;
 
-  // Make a copy of cmd_args so that the correct process name is displayed at the end
-  char *cmd_args_cpy = malloc(strlen(cmd_args) * sizeof(char));
-  if (cmd_args_cpy == NULL)
-    return TID_ERROR;
-
-  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
-
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
-  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     char *str = malloc(sizeof(token));
@@ -99,9 +92,8 @@ process_execute (const char *cmd_args)
     if (i == 0) {
       strlcpy (file_name, token, PGSIZE);
     }
+    i++;
   }
-
-  free(cmd_args_cpy);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
@@ -109,13 +101,16 @@ process_execute (const char *cmd_args)
   // sema_down(exec_sema);
   // thread_current() -> child_success;
 
+  // Free malloc'ed resources in case of failure
   if (tid == TID_ERROR) {
     palloc_free_page (file_name);
-    while (!list_empty (&args_list)) {
-       struct list_elem *e = list_pop_front (&args_list);
-       free(e);
-    }
-    free(args_list);
+    while (!list_empty (args_list)) {
+    struct list_elem *e = list_pop_front (args_list);
+    struct arg *arg = list_entry (e, struct arg, elem);
+    free(arg);
+  }
+  
+  free(args_list);
   }
 
   return tid;
@@ -162,7 +157,16 @@ start_process (void *args_list)
   // sema_up(exec_sema);
 
   // Initializes the stack and saves stack pointer in interrupt frame
-  if_.esp = init_stack((struct list *) args_list);  
+  if_.esp = init_stack((struct list *) args_list);
+
+  // Free structs malloc'ed in process_execute
+  while (!list_empty (args_list)) {
+    struct list_elem *e = list_pop_front (args_list);
+    struct arg *arg = list_entry (e, struct arg, elem);
+    free(arg);
+  }
+
+  free(args_list);
 
   /* If load failed, quit. */
   if (!success) 
