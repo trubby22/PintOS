@@ -53,5 +53,6 @@ void close_userprog (int fd);
 int read_userprog (int fd, const void *buffer, unsigned size);
 void seek_userprog (int fd, unsigned position);
 unsigned tell_userprog (int fd);
+uint32_t file_size_userprog (int fd);
 
 #endif /* userprog/syscall.h */

@@ -143,14 +143,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_FILESIZE:
     fd = *((int *)arg1_ptr);
 
-    sema_down(&filesystem_sema);
-    struct file *target_file = get_file_or_null(fd);
-    if(target_file == NULL) {
-      exit_userprog(-1);
-      break;
-    }
-    result = file_length (target_file);
-    sema_up(&filesystem_sema);
+    result = file_size_userprog(fd);
     break;
 
   case SYS_READ:
@@ -436,4 +429,19 @@ tell_userprog (int fd)
   return ((unsigned)(file->pos));
 }
 
+
+uint32_t file_size_userprog (int fd) {
+  sema_down(&filesystem_sema);
+
+  struct file *target_file = get_file_or_null(fd);
+
+  if(target_file == NULL) {
+    exit_userprog(-1);
+    return;
+  }
+  uint32_t fs = file_length (target_file);
+  sema_up(&filesystem_sema);
+
+  return fs;
+}
 
