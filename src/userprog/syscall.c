@@ -106,16 +106,19 @@ syscall_handler (struct intr_frame *f)
 
   case SYS_EXIT:
     status = *((int *) arg1_ptr);
+
     exit_userprog (status);
     break;
 
   case SYS_EXEC:
     cmd_line = *((const char **) arg1_ptr);
+
     result = (uint32_t) exec_userprog ((const char *) cmd_line);
     break;
 
   case SYS_WAIT:
     pid = *((pid_t *) arg1_ptr);
+
     result = wait_userprog (pid);
     break;
 
@@ -135,9 +138,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_OPEN:
     file = *((const char **) arg1_ptr);
 
-    sema_down(&filesystem_sema);
     result = open_userprog (file);
-    sema_up(&filesystem_sema);
     break;
 
   case SYS_FILESIZE:
@@ -151,9 +152,7 @@ syscall_handler (struct intr_frame *f)
     buffer = *((void **) arg2_ptr);
     size = *((unsigned *) arg3_ptr);
 
-    sema_down(&filesystem_sema);
     result = read_userprog (fd, buffer, size);
-    sema_up(&filesystem_sema);
     break;
 
   case SYS_WRITE:
@@ -161,9 +160,7 @@ syscall_handler (struct intr_frame *f)
     buffer = *((void **) arg2_ptr);
     size = *((unsigned *) arg3_ptr);
 
-    sema_down(&filesystem_sema);
     result = write_userprog (fd, buffer, size);
-    sema_up(&filesystem_sema);
     break;
 
   case SYS_SEEK:
@@ -182,9 +179,7 @@ syscall_handler (struct intr_frame *f)
   case SYS_CLOSE:
     fd = *((int *) arg1_ptr);
     
-    sema_down(&filesystem_sema);
     close_userprog (fd);
-    sema_up(&filesystem_sema);
     break;
 
   default:
@@ -294,6 +289,8 @@ write_userprog (int fd, const void *buffer, unsigned size)
 {
   if (size == 0)
     return 0;
+
+  sema_down(&filesystem_sema);
   
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
@@ -306,10 +303,14 @@ write_userprog (int fd, const void *buffer, unsigned size)
     }
     putbuf(buffer + offset, remaining);
 
+    sema_up(&filesystem_sema);
     return size;
   }
 
   struct file *file = get_file_or_null(fd);
+
+  sema_up(&filesystem_sema);
+
   if(file == NULL) {
     return 0;
   }
@@ -323,7 +324,9 @@ open_userprog (const char *file)
   if (strlen(file) <= 1)
     return -1;
 
+  sema_down(&filesystem_sema);
   struct file *file_struct = filesys_open(file);
+  sema_up(&filesystem_sema);
 
   if (!file_struct)
     return -1;
@@ -367,11 +370,16 @@ remove_userprog (const char *file)
 void 
 close_userprog (int fd)
 {
+  sema_down(&filesystem_sema);
+
   struct file_hash_item *f = get_file_hash_item_or_null(fd);
   if(f == NULL) {
+    sema_up(&filesystem_sema);
     exit_userprog(-1);
     return;
   }
+
+  sema_up(&filesystem_sema);
 
   //Remove it from this processess hash table then 'close'
   if(!hash_delete(get_process_item()->files, &f->elem))
@@ -386,6 +394,8 @@ close_userprog (int fd)
 int
 read_userprog (int fd, const void *buffer, unsigned size)
 {
+  sema_down(&filesystem_sema);
+
   if (fd == STDIN_FILENO) {
     char* console_out = (char *) buffer;
     uint8_t cur_key = input_getc();
@@ -396,14 +406,19 @@ read_userprog (int fd, const void *buffer, unsigned size)
       console_out[offset + key_count] = (char)cur_key;
       key_count += 1;
       if(key_count == size) {
+        sema_up(&filesystem_sema);
         return size;
       }
       cur_key = input_getc();
     }
+    sema_up(&filesystem_sema);
     return key_count;
   }
 
   struct file *file = get_file_or_null(fd);
+
+  sema_up(&filesystem_sema);
+
   if(file == NULL) {
     return -1;
   }
@@ -447,6 +462,7 @@ uint32_t file_size_userprog (int fd) {
 
   if(target_file == NULL) {
     exit_userprog(-1);
+    sema_up(&filesystem_sema);
     return;
   }
   uint32_t fs = file_length (target_file);
