@@ -70,7 +70,12 @@ process_execute (const char *cmd_args)
     return TID_ERROR;
 
   // Tokenize the command line
-  char *token, *save_ptr;
+  char *save_ptr = malloc (strlen(cmd_args) * sizeof(char));
+  if (save_ptr == NULL) {
+    return TID_ERROR;
+  }
+
+  char *token;
   int i = 0;
   for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
@@ -94,6 +99,8 @@ process_execute (const char *cmd_args)
     }
     i++;
   }
+
+  free(save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
