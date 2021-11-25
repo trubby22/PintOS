@@ -132,18 +132,18 @@ start_process (void *args_list)
 {
   // Initisalise new process_hash_item
   // Has to be done once thread has started running
-  //  TODO: free process_hash_item when no longer needed
   struct process_hash_item *p = (struct process_hash_item *)malloc(sizeof(struct process_hash_item));
   if (p == NULL) {
-    PANIC("Failure mallocing struct process_hash_item");
+    PANIC("Failure mallocing struct process_hash_item in start_process");
   }
   p -> next_fd = 2;
-  // TODO: free files when no longer needed
+
   struct hash *files = (struct hash *) malloc(sizeof(struct hash));
   if (files == NULL) {
-    PANIC("Failure mallocing struct hash");
+    PANIC("Failure mallocing struct hash in start_process");
   }
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
+  
   p -> files = files;
   p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);

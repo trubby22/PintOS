@@ -267,6 +267,11 @@ exit_userprog (int status)
     free(child);
   }
 
+  struct process_hash_item *p = get_process_item();
+  struct hash *h = p->files;
+  free(h);
+  free(p);
+
   printf ("%s: exit(%d)\n", t->name, status);
   lock_release(&t->info->alive_lock);
   thread_exit();
@@ -326,6 +331,9 @@ open_userprog (const char *file)
   struct process_hash_item *p = get_process_item();
 
   struct file_hash_item *f = (struct file_hash_item *) malloc(sizeof(struct file_hash_item));
+  if (f == NULL) {
+    PANIC ("Could not malloc file_hash_item when calling open_userprog");
+  }
   f -> fd = p -> next_fd;
   p -> next_fd++;
   f->file = file_struct;
