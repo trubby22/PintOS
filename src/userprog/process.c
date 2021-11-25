@@ -211,17 +211,19 @@ process_wait (tid_t child_tid)
 
   struct child *target;
   struct list_elem *e;
+  bool found = false;
 
   for (e = list_begin (list); e != list_end (list);
        e = list_next (e)) {
     struct child *child = list_entry (e, struct child, elem);
     if (child->tid == child_tid) {
       target = child;
+      found = true;
       break;
     }
   }
 
-  if (!target) {
+  if (!found) {
     return -1;
   }
 
