@@ -260,6 +260,13 @@ exit_userprog (int status)
 {
   struct thread *t = thread_current();
   t->info->exit_status = status;
+
+  while (!list_empty (&t->children)) {
+    struct list_elem *e = list_pop_front (&t->children);
+    struct child *child = list_entry (e, struct child, elem);
+    free(child);
+  }
+
   printf ("%s: exit(%d)\n", t->name, status);
   lock_release(&t->info->alive_lock);
   thread_exit();
