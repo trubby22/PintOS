@@ -74,6 +74,8 @@ process_execute (const char *cmd_args)
     return TID_ERROR;
   }
 
+  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
+
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
