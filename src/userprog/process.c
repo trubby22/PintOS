@@ -98,6 +98,8 @@ process_execute (const char *cmd_args)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
 
+  palloc_free_page (file_name);
+
   struct list_elem *e = list_front(&thread_current()->children);
   struct child *child = list_entry (e, struct child, elem);
 
@@ -105,13 +107,12 @@ process_execute (const char *cmd_args)
 
   // By this line the child has already loaded its executable - so we know whether that was a success or not
 
-  if (!child->exit_status) {
+  if (child->exit_status == -1) {
     tid = TID_ERROR;
   }
 
-  // Free malloc'ed resources in case of failure
-  if (tid == TID_ERROR) {
-    palloc_free_page (file_name);
+  // Free malloc'ed resources if the child failed to load and if the child has not exited yet
+  if (tid == TID_ERROR && child->exit_status == -2) {
     while (!list_empty (args_list)) {
       struct list_elem *e = list_pop_front (args_list);
       struct arg *arg = list_entry (e, struct arg, elem);
@@ -212,14 +213,13 @@ process_wait (tid_t child_tid)
   struct list_elem *e;
 
   for (e = list_begin (list); e != list_end (list);
-       e = list_next (e))
-    {
-      struct child *child = list_entry (e, struct child, elem);
-      if (child->tid == child_tid) {
-        target = child;
-        break;
-      }
+       e = list_next (e)) {
+    struct child *child = list_entry (e, struct child, elem);
+    if (child->tid == child_tid) {
+      target = child;
+      break;
     }
+  }
 
   if (!target) {
     return -1;
@@ -229,7 +229,7 @@ process_wait (tid_t child_tid)
 
   int exit_status = target->exit_status;
 
-  list_remove(&t->children);
+  list_remove(&target->elem);
   free(target);
 
   return exit_status;

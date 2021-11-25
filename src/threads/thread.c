@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/syscall.h"
@@ -191,13 +192,16 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   
-  struct child *child = malloc(sizeof(struct child));
+  struct child *child = (struct child *) malloc(sizeof(struct child));
   if (child == NULL) {
     return TID_ERROR;
   }
   lock_init(&child->alive_lock);
   child->alive_lock.holder = t;
+  child->alive_lock.semaphore.value = 0;
   sema_init(&child->sema, 0);
+  child->tid = tid;
+  child->exit_status = -2;
 
   t->info = child;
   list_push_front(&thread_current()->children, &child->elem);
@@ -489,6 +493,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->children);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
