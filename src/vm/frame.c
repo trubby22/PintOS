@@ -46,8 +46,8 @@ Eviction policy
 */
 
 struct frame *evict (struct frame *head){
-  bool save = head -> save;
-  if (head -> save){
+  bool save = head->save;
+  if (head->save){
     
 
   }

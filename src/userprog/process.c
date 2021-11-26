@@ -38,7 +38,7 @@ init_hash_table (void)
 struct process_hash_item *
 get_process_item(void)
 {
-  pid_t pid = thread_current() -> tid;
+  pid_t pid = thread_current()->tid;
   //create dummy elem with pid then:
   struct process_hash_item dummy_p;
   dummy_p.pid = pid; 
@@ -136,7 +136,7 @@ start_process (void *args_list)
   if (p == NULL) {
     PANIC("Failure mallocing struct process_hash_item in start_process");
   }
-  p -> next_fd = 2;
+  p->next_fd = 2;
 
   struct hash *files = (struct hash *) malloc(sizeof(struct hash));
   if (files == NULL) {
@@ -144,8 +144,8 @@ start_process (void *args_list)
   }
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   
-  p -> files = files;
-  p -> pid = thread_current() -> tid; //Would be nice to use next_tid somehow but its static 
+  p->files = files;
+  p->pid = thread_current()->tid; //Would be nice to use next_tid somehow but its static 
   hash_insert(&process_table, &p->elem);
   
   struct intr_frame if_;
@@ -182,7 +182,7 @@ start_process (void *args_list)
 
   /* If load failed, quit. */
   if (!success) 
-    exit_userprog (-1);
+    syscall_exit (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
