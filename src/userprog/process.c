@@ -81,7 +81,7 @@ process_execute (const char *cmd_args)
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
-  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
     char *str = malloc(sizeof(token));
