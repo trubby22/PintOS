@@ -264,8 +264,12 @@ exit_userprog (int status)
 
   struct process_hash_item *p = get_process_item();
   struct hash *h = p->files;
-  free(h);
-  free(p);
+  if (h != NULL) {
+    free(h);
+  }
+  // if (p != NULL) {
+  //   free(p);
+  // }
 
   printf ("%s: exit(%d)\n", t->name, status);
   lock_release(&t->info->alive_lock);
