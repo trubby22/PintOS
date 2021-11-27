@@ -7,13 +7,6 @@
 #define MAX_ARG_NUM 32
 #define MAX_ARG_LEN 32
 
-// Used to pass around data from process_execute to start_process
-struct argv_argc {
-  char argv[MAX_ARG_NUM][MAX_ARG_LEN];
-  int argc;
-  char *cmd_args_cpy;
-};
-
 struct arg {
   char *str;
   struct list_elem elem;
