@@ -69,6 +69,13 @@ process_execute (const char *cmd_args)
   if (file_name == NULL)
     return TID_ERROR;
 
+  // char *cmd_args_cpy = (char *) malloc(strlen(cmd_args) * sizeof(char));
+  // if (cmd_args_cpy == NULL) {
+  //   return TID_ERROR;
+  // }
+
+  // strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
+
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
@@ -94,6 +101,8 @@ process_execute (const char *cmd_args)
     }
     i++;
   }
+
+  // free(cmd_args_cpy);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
