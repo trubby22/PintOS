@@ -56,6 +56,8 @@ process_execute (const char *cmd_args)
 {
   tid_t tid;
 
+  ASSERT (intr_get_level () == INTR_ON);
+
   // Allocate list of arguments
   struct list *args_list = malloc(sizeof(struct list));
   if (args_list == NULL) {
