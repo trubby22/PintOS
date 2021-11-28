@@ -35,24 +35,25 @@ unsigned hash_hash_fun_b(const struct hash_elem *e, void *aux UNUSED);
 bool hash_less_fun_b (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
 
 void syscall_init (void);
-void validate_args (int expected, void *arg1, void *arg2, void *arg3);
-void validate_user_pointer (const void *vaddr);
+void syscall_exit(int status);
+void validate_args(int expected, void *arg1, void *arg2, void *arg3);
+void validate_user_pointer (uint32_t *vaddr);
 
 struct file_hash_item *get_file_hash_item_or_null(int fd);
 struct file *get_file_or_null(int fd);
 bool fd_exists(int fd);
-void halt_userprog (void);
-void exit_userprog (int);
-pid_t exec_userprog (const char *);
-int wait_userprog (pid_t);
-int write_userprog (int fd, const void *buffer, unsigned size);
-int open_userprog (const char *file);
-bool create_userprog (const char *file, unsigned initial_size);
-bool remove_userprog (const char *file);
-void close_userprog (int fd);
-int read_userprog (int fd, const void *buffer, unsigned size);
-void seek_userprog (int fd, unsigned position);
-unsigned tell_userprog (int fd);
-uint32_t file_size_userprog (int fd);
+uint32_t halt_userprog (void **, void **, void **);
+uint32_t exit_userprog (void **, void **, void **);
+uint32_t exec_userprog (void **, void **, void **);
+uint32_t wait_userprog (void **, void **, void **);
+uint32_t write_userprog (void **, void **, void **);
+uint32_t open_userprog (void **, void **, void **);
+uint32_t create_userprog (void **, void **, void **);
+uint32_t remove_userprog (void **, void **, void **);
+uint32_t close_userprog (void **, void **, void **);
+uint32_t read_userprog (void **, void **, void **);
+uint32_t seek_userprog (void **, void **, void **);
+uint32_t tell_userprog (void **, void **, void **);
+uint32_t file_size_userprog (void **, void **, void **);
 
 #endif /* userprog/syscall.h */
