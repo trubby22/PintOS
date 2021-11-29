@@ -56,4 +56,7 @@ uint32_t seek_userprog (void **, void **, void **);
 uint32_t tell_userprog (void **, void **, void **);
 uint32_t file_size_userprog (void **, void **, void **);
 
+void acquire_filesystem_lock(void);
+void release_filesystem_lock(void);
+
 #endif /* userprog/syscall.h */
