@@ -23,5 +23,10 @@
 *.nav
 *.toc
 
+#custom folder ignores
 .idea/
 .vscode/
+
+#custom file ignores
+*.DS_Store
+*libc.a
