@@ -12,6 +12,7 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 #include <string.h>
+#include "lib/stdio.h"
 
 #define NON_VOID_RETURN 0
 
@@ -53,7 +54,7 @@ hash_less_fun_b (const struct hash_elem *a,
   return hash_hash_fun_b(a,NULL) < hash_hash_fun_b(b,NULL);
 }
 
-struct semaphore filesystem_sema;
+struct lock filesystem_lock;
 uint32_t (*syscall_functions[13])(void **, void **, void **) = {
     &halt_userprog,
     &exit_userprog,
@@ -73,7 +74,7 @@ void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  sema_init(&filesystem_sema, 1);
+  lock_init(&filesystem_lock);
 }
 
 void
@@ -209,7 +210,7 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   if (size == 0)
     return 0;
 
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
   
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
@@ -222,13 +223,13 @@ write_userprog (void **arg1, void **arg2, void **arg3)
     }
     putbuf(buffer + offset, remaining);
 
-    sema_up(&filesystem_sema);
+    lock_release(&filesystem_lock);
     return size;
   }
 
   struct file *file = get_file_or_null(fd);
 
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   if(file == NULL) {
     return 0;
@@ -249,9 +250,9 @@ open_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   if (strlen(file) <= 1)
     return -1;
 
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
   struct file *file_struct = filesys_open(file);
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   if (!file_struct)
     return -1;
@@ -276,9 +277,9 @@ create_userprog (void **arg1, void **arg2, void **arg3 UNUSED)
   validate_user_pointer((uint32_t *) file);
   unsigned initial_size = *((unsigned *) arg2);
 
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
   bool success = filesys_create(file, (off_t) initial_size);
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   return success;
 }
@@ -287,9 +288,9 @@ uint32_t
 remove_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
   const char *file = (const char *) (*((const char **) arg1));
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
   bool success = filesys_remove(file);
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   return success;
 }
@@ -298,16 +299,16 @@ uint32_t
 close_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
   int fd = *((int *) arg1);
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
 
   struct file_hash_item *f = get_file_hash_item_or_null(fd);
   if(f == NULL) {
-    sema_up(&filesystem_sema);
+    lock_release(&filesystem_lock);
     syscall_exit(-1);
     return NON_VOID_RETURN;
   }
 
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   //Remove it from this processess hash table then 'close'
   if(!hash_delete(get_process_item()->files, &f->elem))
@@ -327,7 +328,7 @@ read_userprog (void **arg1, void **arg2, void **arg3)
   void *buffer = *((void **) arg2);
   unsigned size = *((unsigned *) arg3);
   validate_user_pointer((uint32_t *) buffer);
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
 
   if (fd == STDIN_FILENO) {
     char* console_out = (char *) buffer;
@@ -339,18 +340,18 @@ read_userprog (void **arg1, void **arg2, void **arg3)
       console_out[offset + key_count] = (char)cur_key;
       key_count += 1;
       if(key_count == size) {
-        sema_up(&filesystem_sema);
+        lock_release(&filesystem_lock);
         return size;
       }
       cur_key = input_getc();
     }
-    sema_up(&filesystem_sema);
+    lock_release(&filesystem_lock);
     return key_count;
   }
 
   struct file *file = get_file_or_null(fd);
 
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   if(file == NULL) {
     return -1;
@@ -367,7 +368,9 @@ seek_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
     return NON_VOID_RETURN;
   }
 
+  lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
+  lock_release(&filesystem_lock);
   if(file == NULL) {
     syscall_exit(-1);
   }
@@ -380,7 +383,9 @@ uint32_t
 tell_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
   int fd = *((int *) arg1);
+  lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
+  lock_release(&filesystem_lock);
   if(file == NULL) {
     syscall_exit(-1);
     return NON_VOID_RETURN;
@@ -392,18 +397,26 @@ tell_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 
 uint32_t file_size_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED) {
   int fd = *((int *) arg1);
-  sema_down(&filesystem_sema);
+  lock_acquire(&filesystem_lock);
 
   struct file *target_file = get_file_or_null(fd);
 
   if(target_file == NULL) {
     syscall_exit(-1);
-    sema_up(&filesystem_sema);
+    lock_release(&filesystem_lock);
     return NON_VOID_RETURN;
   }
   uint32_t fs = file_length (target_file);
-  sema_up(&filesystem_sema);
+  lock_release(&filesystem_lock);
 
   return fs;
+}
+
+void acquire_filesystem_lock(void) {
+  lock_acquire(&filesystem_lock);
+}
+
+void release_filesystem_lock(void) {
+  lock_release(&filesystem_lock);
 }
 

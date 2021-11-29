@@ -172,7 +172,9 @@ start_process (void *args_list)
   struct arg *arg = list_entry (e, struct arg, elem);
   const char *function_name = (const char *) arg->str;
 
+  acquire_filesystem_lock();
   success = load (function_name, &if_.eip, &if_.esp);
+  release_filesystem_lock();
 
   struct thread *t = thread_current();
   t->info->load_success = success;
