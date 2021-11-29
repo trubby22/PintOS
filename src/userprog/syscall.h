@@ -29,10 +29,10 @@ struct file_hash_item
   struct hash_elem elem;
 };
 
-unsigned hash_hash_fun(const struct hash_elem *e, void *aux UNUSED);
-bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
-unsigned hash_hash_fun_b(const struct hash_elem *e, void *aux UNUSED);
-bool hash_less_fun_b (const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+unsigned hash_hash_fun(const struct hash_elem *e, void *aux);
+bool hash_less_fun (const struct hash_elem *a, const struct hash_elem *b, void *aux);
+unsigned hash_hash_fun_b(const struct hash_elem *e, void *aux);
+bool hash_less_fun_b (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 void syscall_init (void);
 void syscall_exit(int status);
