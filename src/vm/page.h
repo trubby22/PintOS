@@ -5,9 +5,11 @@
 #include "lib/kernel/bitmap.h"
 #include "userprog/syscall.h"
 
+#define MAX_SUPP_PAGE_TABLE_SIZE 100
+
 struct supp_page_table {
   struct hash table;
-  struct bitmap *valid_bit_map;
+  struct bitmap *bitmap;
 };
 
 struct page {
@@ -16,9 +18,10 @@ struct page {
   struct frame *frame_ptr;
 };
 
-void init_supp_page_table(void *);
-
-// Converts virtual address to physical address. If the virtual address is invalid, causes a PF.
+void init_supp_page_table(void);
 void *convert_virtual_to_physical(void *);
+
+unsigned sptable_hash_func (const struct hash_elem *e, void *aux);
+bool sptable_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 #endif
