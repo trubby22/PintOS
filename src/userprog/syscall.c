@@ -246,7 +246,7 @@ open_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 
   validate_user_pointer((uint32_t *) file);
 
-  if (strlen(file) <= 1)
+  if (strlen(file) < 1)
     return -1;
 
   sema_down(&filesystem_sema);
