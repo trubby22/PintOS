@@ -22,12 +22,39 @@ void *convert_virtual_to_physical(void *vaddr) {
   // Assuming pid = tid
   pid_t pid = thread_current()->tid;
 
-  // I'm waiting for get_frame_number to be implemented
-  // Desired function signature:
-  // uin32_t get_frame_number(pid_t pid, uint32_t page_number)
-  uint32_t frame_number = get_frame_number(pid, page_number);
+  // Searches the page table for the provided vaddr
+  struct page dummy;
+
+  dummy.pid = pid;
+  dummy.page_number = page_number;
+  
+  struct hash_elem *target_elem = hash_find(&sp_table.table, &dummy.elem);
+
+  uint32_t frame_number;
+  if (target_elem == NULL) {
+    // TODO: I'm waiting for get_frame_number to be implemented
+    // Desired function signature:
+    // uin32_t get_frame_number(pid_t pid, uint32_t page_number)
+    frame_number = get_frame_number(pid, page_number);
+  } else {
+    struct page *target_page = hash_entry(target_elem, struct page, elem);
+
+    // Checks page's "valid bit". Terminates process if invalid.
+    if (!target_page->valid) {
+      exit_userprog(-1, NULL, NULL);
+    }
+
+    struct frame *target_frame = target_page->frame_ptr;
+
+    // TODO: I am still waiting until struct frame gets completed
+    // frame_number = target_frame->frame_number;
+    frame_number = 0;
+  }
 
   uint32_t int_paddr = frame_number << 12 + offset;
+
+  // Expects address to be in user memory
+  validate_user_pointer((uint32_t *) int_paddr);
 
   return (void *) int_paddr;
 }

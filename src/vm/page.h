@@ -12,13 +12,16 @@ struct supp_page_table {
   struct bitmap *bitmap;
 };
 
-struct page {
+struct page { 
   // keys
   int page_number;
   pid_t pid;
 
-  // value
+  // values
   struct frame *frame_ptr;
+  bool valid;
+  bool accessed;
+  bool dirty;
 
   // hash_elem
   struct hash_elem elem;
