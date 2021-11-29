@@ -13,9 +13,15 @@ struct supp_page_table {
 };
 
 struct page {
+  // keys
   int page_number;
   pid_t pid;
+
+  // value
   struct frame *frame_ptr;
+
+  // hash_elem
+  struct hash_elem elem;
 };
 
 void init_supp_page_table(void);
