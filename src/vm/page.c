@@ -59,6 +59,10 @@ void *convert_virtual_to_physical(void *vaddr) {
   return (void *) int_paddr;
 }
 
+void free_process_pages(pid_t pid) {
+  // TODO
+}
+
 unsigned sptable_hash_func (const struct hash_elem *e, void *aux) {
   struct page *page = hash_entry(e, struct page, elem);
   return hash_int(page->pid) ^ hash_int(page->page_number);

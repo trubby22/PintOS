@@ -29,6 +29,7 @@ struct page {
 
 void init_supp_page_table(void);
 void *convert_virtual_to_physical(void *);
+void free_process_pages(pid_t pid);
 
 unsigned sptable_hash_func (const struct hash_elem *e, void *aux);
 bool sptable_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
