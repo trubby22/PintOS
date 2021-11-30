@@ -21,6 +21,8 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 
+// TODO: change this file to implement our frame table
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void *init_stack(struct list *args_list);
@@ -106,6 +108,7 @@ process_execute (const char *cmd_args)
 
   // free(cmd_args_cpy);
 
+  // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
 
@@ -550,6 +553,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
+      // TODO: implement lazy loading of executables inside this while-loop
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
