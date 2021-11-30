@@ -9,7 +9,7 @@
 
 struct supp_page_table {
   struct hash table;
-  struct bitmap *bitmap;
+  struct bitmap *valid_bits;
 };
 
 struct page { 

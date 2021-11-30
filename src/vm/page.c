@@ -6,7 +6,7 @@ static struct supp_page_table sp_table;
 
 void init_supp_page_table(void) {
   hash_init(&sp_table.table, sptable_hash_func, sptable_less_func, NULL);
-  sp_table.bitmap = bitmap_create(MAX_SUPP_PAGE_TABLE_SIZE);
+  sp_table.valid_bits = bitmap_create(MAX_SUPP_PAGE_TABLE_SIZE);
 }
 
 // Converts virtual address to physical address. If the virtual address is invalid, causes a PF.
@@ -19,8 +19,16 @@ void *convert_virtual_to_physical(void *vaddr) {
   // Gets last 12 bits of virtual address
   uint32_t offset = int_vaddr & 0xfff;
 
+  struct thread *t = thread_current();
+
+  // Tests whether the queried address belongs to a page that has already been loaded from the executable. Assumption: page_number = segment number.
+  if (!bitmap_test(t->loaded_segments, page_number)) {
+    // TODO: Lazy-load segment
+    
+  }
+
   // Assuming pid = tid
-  pid_t pid = thread_current()->tid;
+  pid_t pid = t->tid;
 
   // Searches the page table for the provided vaddr
   struct page dummy;
@@ -30,12 +38,17 @@ void *convert_virtual_to_physical(void *vaddr) {
   
   struct hash_elem *target_elem = hash_find(&sp_table.table, &dummy.elem);
 
+  // Gets name of executable in case lazy-loading needs to be performed
+  char *file_name = thread_name();
+
   uint32_t frame_number;
   if (target_elem == NULL) {
     // TODO: I'm waiting for get_frame_number to be implemented
     // Desired function signature:
     // uin32_t get_frame_number(pid_t pid, uint32_t page_number)
-    frame_number = get_frame_number(pid, page_number);
+    struct frame *target_frame = get_frame(pid, page_number);
+    // frame_number = target_frame->frame_number;
+    frame_number = 0;
   } else {
     struct page *target_page = hash_entry(target_elem, struct page, elem);
 

@@ -101,8 +101,14 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     //struct page_table pge_tbl;          /* Thread's virtual page table */
 
+    // Used for user programs
     struct list children;
     struct child *info;
+
+    // Total number of segments (program headers) to load from executable
+    int phnum;
+    // Keeps track of what segments have already been loaded.
+    struct bitmap *loaded_segments;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

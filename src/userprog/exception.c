@@ -151,6 +151,7 @@ page_fault (struct intr_frame *f)
   void *paddr = convert_virtual_to_physical(fault_addr);
 
   // TODO: check if there was an attempt to write to read-only page
+  // TODO: implement lazy-loading of executables
 
   if (paddr == NULL) {
     /* To implement virtual memory, delete the rest of the function

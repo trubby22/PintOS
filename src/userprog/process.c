@@ -20,6 +20,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include <bitmap.h>
 
 // TODO: change this file to implement our frame table
 
@@ -405,6 +406,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  // Saves number of segments to load in struct thread. Used for lazy-loading.
+  t->phnum = ehdr.e_phnum;
+  // Initializes the bitmap that keeps track of what segments have already been loaded.
+  t->loaded_segments = bitmap_create(t->phnum);
+
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
@@ -593,6 +599,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
     }
+  
+  // Marks the segment as loaded in struct thread. Used for lazy-loading.
+  struct thread *t = thread_current();
+  bitmap_mark(t->loaded_segments, ofs / PGSIZE);
+
   return true;
 }
 
