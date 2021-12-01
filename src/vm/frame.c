@@ -1,10 +1,10 @@
 #include "vm/frame.h"
 #include <stdbool.h>
 #include <hash.h>
-#include <palloc.h>
+#include "threads/palloc.h"
 #include <debug.h>
-#include <malloc.h>
-#include <pagedir.h>
+#include "threads/malloc.h"
+#include "userprog/pagedir.h"
 
 #define MAX_FRAME_TABLE_SIZE 100 //If met evictions are needed
 #define frameid int
