@@ -150,7 +150,8 @@ page_fault (struct intr_frame *f)
      uint32_t new_count = thread_current() -> page_count + 1;
      thread_current() -> page_count = new_count;
 
-      //Create new page if overflowed
+      //Create new page
+     thread_current()->page_addr -= PGSIZE;
      create_stack_page (&esp, new_count);
   }
 

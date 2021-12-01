@@ -607,11 +607,13 @@ create_stack_page (void **esp, uint32_t pg_num)
   bool success = false;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  ASSERT(kpage);
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - (PGSIZE * pg_num), kpage, true);
+      ASSERT(success);
       if (success)
-        *esp = PHYS_BASE - (PGSIZE * (pg_num - 1)) - 12;
+        *esp = (PHYS_BASE - (PGSIZE * (pg_num - 1))) - 12;
       else
         palloc_free_page (kpage);
     }

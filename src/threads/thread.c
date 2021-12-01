@@ -494,6 +494,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   t->page_count = 1;
+  t->page_addr = t;
   list_init(&t->children);
 
   old_level = intr_disable ();
@@ -570,7 +571,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      palloc_free_multiple (prev, prev->page_count);
+      palloc_free_multiple (prev->page_addr, prev->page_count);
     }
 }
 
