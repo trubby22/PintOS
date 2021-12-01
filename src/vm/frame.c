@@ -15,20 +15,32 @@
 //   struct hash table;  //
 // };
 
-// struct frame
-// {
-//   frameid id;              //key
-//   void* address;           //value?
-//   //Needs to track owner?
-//   bool save;               //If 1 then frame is saved
-//   struct hash_elem *elem;  //Elem to be part of frame table
-//   struct frame *next;      //Pointer to be part of circular queue for eviction
-// };
+struct frame
+{
+  frameid id;              //key
+  void* address;           //value?
+  //Needs to track owner?
+  bool save;               //If 1 then frame is saved
+  struct hash_elem elem;  //Elem to be part of frame table
+  struct frame *next;      //Pointer to be part of circular queue for eviction
+};
 
-// struct frametable *frame_table;
-// frame_table->head  = NULL;
-// frame_table->size  = 0;
-// hash_init(frame_table->table, hash_hash_func, hash_less_func);
+unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
+{
+  struct frame *f = hash_entry(e, frame, elem);
+  return f -> id;
+}
+
+bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
+{
+  return frame_hash(a,NULL) < frame_hash(b, NULL);
+
+}
+
+struct frametable *frame_table;
+frame_table->head  = NULL;
+frame_table->size  = 0;
+hash_init(frame_table->table, frame_hash, frame_less);
 
 // /* 
 // Contains:
@@ -70,28 +82,28 @@
 //   return f -> address;
 // }
 
-// /* Returns a new frame. Evicts if needed */
-// frameid get_frame (){
-//   //New frames should be malloc'd
-//   struct frame* frame;
-// 	if (frame_table.size == MAX_FRAME_TABLE_SIZE)
-// 	{
-//     //Should call frame = evict (frame_table.head); but will just panic for now
-// 		PANIC("Ran out of free frames");
-// 	} else{
-// 		//use palloc user page to create a new frame
-//     frame -> address = palloc_get_page(PAL_USER);
-//     //fix circular queue
-// 		struct frame *head = frame_table -> head;
-// 		frame -> next  = head -> next;
-// 		head -> next = frame;
-// 		frame_table -> head = frame -> next;
-//     //assign frame id and fix table size
-//     frame_table -> size++;
-//     frame -> id = frame_table -> size;
-// 	}
-// 	return frame -> id;
-// }
+/* Returns a new frame. Evicts if needed */
+frameid get_frame (){
+  //New frames should be malloc'd
+  struct frame* frame;
+	if (frame_table -> size == MAX_FRAME_TABLE_SIZE)
+	{
+    //Should call frame = evict (frame_table -> head); but will just panic for now
+		PANIC("Ran out of free frames");
+	} else{
+		//use palloc user page to create a new frame
+    frame -> address = palloc_get_page(PAL_USER);
+    //fix circular queue
+		struct frame *head = frame_table -> head;
+		frame -> next  = head -> next;
+		head -> next = frame;
+		frame_table -> head = frame -> next;
+    //assign frame id and fix table size
+    frame_table -> size++;
+    frame -> id = frame_table -> size;
+	}
+	return frame -> id;
+}
 
 // /* Implements a second chance eviction algorithm
 //    will allocate a swap slot if needed */
