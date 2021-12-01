@@ -1,3 +1,4 @@
+#include "lib/user/syscall.h"
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
@@ -14,7 +15,7 @@
 #include <string.h>
 #include "lib/stdio.h"
 
-#define NON_VOID_RETURN 0
+#define VOID_RETURN 0
 
 static void syscall_handler (struct intr_frame *);
 
@@ -55,7 +56,7 @@ hash_less_fun_b (const struct hash_elem *a,
 }
 
 struct lock filesystem_lock;
-uint32_t (*syscall_functions[13])(void **, void **, void **) = {
+uint32_t (*syscall_functions[15])(void **, void **, void **) = {
     &halt_userprog,
     &exit_userprog,
     &exec_userprog,
@@ -68,7 +69,9 @@ uint32_t (*syscall_functions[13])(void **, void **, void **) = {
     &write_userprog,
     &seek_userprog,
     &tell_userprog,
-    &close_userprog};
+    &close_userprog,
+    &mmap_userprog,
+    &munmap_userprog};
 
 void
 syscall_init (void) 
@@ -156,7 +159,7 @@ uint32_t
 halt_userprog (void ** arg1 UNUSED, void ** arg2 UNUSED, void ** arg3 UNUSED)
 {
   shutdown_power_off ();
-  return NON_VOID_RETURN;
+  return VOID_RETURN;
 }
 
 uint32_t 
@@ -183,7 +186,7 @@ exit_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   printf ("%s: exit(%d)\n", t->name, status);
   lock_release(&t->info->alive_lock);
   thread_exit();
-  return NON_VOID_RETURN;
+  return VOID_RETURN;
 }
 
 uint32_t 
@@ -305,7 +308,7 @@ close_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   if(f == NULL) {
     lock_release(&filesystem_lock);
     syscall_exit(-1);
-    return NON_VOID_RETURN;
+    return VOID_RETURN;
   }
 
   lock_release(&filesystem_lock);
@@ -314,11 +317,11 @@ close_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   if(!hash_delete(get_process_item()->files, &f->elem))
   {
     syscall_exit(-1);
-    return NON_VOID_RETURN;
+    return VOID_RETURN;
   }
   file_close(f->file);
   free(f);
-  return NON_VOID_RETURN;
+  return VOID_RETURN;
 }
 
 uint32_t
@@ -365,7 +368,7 @@ seek_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   int fd = *((int *) arg1);
   unsigned position = *((unsigned *) arg2);
   if(fd == STDIN_FILENO || fd == STDOUT_FILENO) {
-    return NON_VOID_RETURN;
+    return VOID_RETURN;
   }
 
   lock_acquire(&filesystem_lock);
@@ -376,7 +379,7 @@ seek_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   }
 
   file->pos = (off_t)position;
-  return NON_VOID_RETURN;
+  return VOID_RETURN;
 }
 
 uint32_t
@@ -388,10 +391,25 @@ tell_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   lock_release(&filesystem_lock);
   if(file == NULL) {
     syscall_exit(-1);
-    return NON_VOID_RETURN;
+    return VOID_RETURN;
   }
 
   return ((unsigned)(file->pos));
+}
+
+uint32_t
+mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
+{
+  int fd = *((int *) arg1);
+  void *address = (void *) *((uint32_t **) arg2);
+  return 0; // TODO: complete mmap function
+}
+
+uint32_t
+munmap_userprog(void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
+{
+  mapid_t mapping = *((int *) arg1);
+  return VOID_RETURN;
 }
 
 
@@ -404,7 +422,7 @@ uint32_t file_size_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED
   if(target_file == NULL) {
     syscall_exit(-1);
     lock_release(&filesystem_lock);
-    return NON_VOID_RETURN;
+    return VOID_RETURN;
   }
   uint32_t fs = file_length (target_file);
   lock_release(&filesystem_lock);

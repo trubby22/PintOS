@@ -54,6 +54,8 @@ uint32_t close_userprog (void **, void **, void **);
 uint32_t read_userprog (void **, void **, void **);
 uint32_t seek_userprog (void **, void **, void **);
 uint32_t tell_userprog (void **, void **, void **);
+uint32_t mmap_userprog (void **, void **, void **);
+uint32_t munmap_userprog (void **, void **, void **);
 uint32_t file_size_userprog (void **, void **, void **);
 
 // TODO: mmap, munmap
