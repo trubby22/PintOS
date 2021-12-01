@@ -109,6 +109,30 @@ process_execute (const char *cmd_args)
 
   palloc_free_page(cmd_args_cpy);
 
+  acquire_filesystem_lock();
+
+  struct file *file = filesys_open(file_name);
+
+  if (file == NULL) {
+
+    palloc_free_page (file_name);
+
+    while (!list_empty (args_list)) {
+      struct list_elem *e = list_pop_front (args_list);
+      struct arg *arg = list_entry (e, struct arg, elem);
+      palloc_free_page(arg);
+    }
+
+    free(args_list);
+
+    return -1;
+    
+  } else {
+    file_close(file);
+  }
+
+  release_filesystem_lock();
+
   // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
@@ -134,7 +158,7 @@ process_execute (const char *cmd_args)
       palloc_free_page(arg);
     }
   
-  free(args_list);
+    free(args_list);
   }
 
   return tid;
