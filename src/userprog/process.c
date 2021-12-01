@@ -74,26 +74,26 @@ process_execute (const char *cmd_args)
   if (file_name == NULL)
     return TID_ERROR;
 
-  // char *cmd_args_cpy = (char *) malloc(strlen(cmd_args) * sizeof(char));
-  // if (cmd_args_cpy == NULL) {
-  //   return TID_ERROR;
-  // }
+  char *cmd_args_cpy = (char *) palloc_get_page(0);
+  if (cmd_args_cpy == NULL) {
+    return TID_ERROR;
+  }
 
-  // strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
+  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
 
   // Tokenize the command line
   char *token, *save_ptr;
   int i = 0;
-  for (token = strtok_r(cmd_args, " ", &save_ptr); token != NULL;
+  for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    char *str = malloc(sizeof(token));
+    char *str = palloc_get_page(0);
     if (str == NULL) {
       return TID_ERROR;
     }
     strlcpy(str, token, (strlen(token) + 1) * sizeof(char));
 
-    struct arg *arg = malloc(sizeof(struct arg));
+    struct arg *arg = palloc_get_page(0);
     if (arg == NULL) {
       return TID_ERROR;
     }
@@ -107,7 +107,31 @@ process_execute (const char *cmd_args)
     i++;
   }
 
-  // free(cmd_args_cpy);
+  palloc_free_page(cmd_args_cpy);
+
+  acquire_filesystem_lock();
+
+  struct file *file = filesys_open(file_name);
+
+  if (file == NULL) {
+
+    palloc_free_page (file_name);
+
+    while (!list_empty (args_list)) {
+      struct list_elem *e = list_pop_front (args_list);
+      struct arg *arg = list_entry (e, struct arg, elem);
+      palloc_free_page(arg);
+    }
+
+    free(args_list);
+
+    return -1;
+
+  } else {
+    file_close(file);
+  }
+
+  release_filesystem_lock();
 
   // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
@@ -131,10 +155,10 @@ process_execute (const char *cmd_args)
     while (!list_empty (args_list)) {
       struct list_elem *e = list_pop_front (args_list);
       struct arg *arg = list_entry (e, struct arg, elem);
-      free(arg);
+      palloc_free_page(arg);
     }
   
-  free(args_list);
+    free(args_list);
   }
 
   return tid;
@@ -192,7 +216,7 @@ start_process (void *args_list)
   while (!list_empty (args_list)) {
     struct list_elem *e = list_pop_front (args_list);
     struct arg *arg = list_entry (e, struct arg, elem);
-    free(arg);
+    palloc_free_page(arg);
   }
 
   free(args_list);
@@ -386,7 +410,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  file_deny_write(file);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -477,6 +500,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  file_deny_write(file);
   return success;
 }
 
