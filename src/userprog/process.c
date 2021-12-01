@@ -600,14 +600,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-/* Create a minimal stack by mapping a zeroed page at the top of
-   user virtual memory. */
-static bool
-setup_stack (void **esp) 
-{
-  create_stack_page(esp, 1);
-}
-
 static bool
 create_stack_page (void **esp, uint32_t pg_num)
 {
@@ -624,6 +616,14 @@ create_stack_page (void **esp, uint32_t pg_num)
         palloc_free_page (kpage);
     }
   return success;
+}
+
+/* Create a minimal stack by mapping a zeroed page at the top of
+   user virtual memory. */
+static bool
+setup_stack (void **esp) 
+{
+  return create_stack_page(esp, 1);
 }
 
 // Puts cmd line arguments on the stack
