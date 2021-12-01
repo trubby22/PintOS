@@ -360,7 +360,7 @@ struct Elf32_Phdr
 
 static bool setup_stack (void **esp);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
-bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
+static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
 
@@ -405,11 +405,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
-
-  // Saves number of segments to load in struct thread. Used for lazy-loading.
-  t->phnum = ehdr.e_phnum;
-  // Initializes the bitmap that keeps track of what segments have already been loaded.
-  t->loaded_segments = bitmap_create(t->phnum);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -460,9 +455,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              // Fills each segment with zeros
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 0, zero_bytes + read_bytes, writable))
+                                 read_bytes, zero_bytes, writable))
                 goto done;
             }
           else
@@ -549,7 +543,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
    Return true if successful, false if a memory allocation error
    or disk read error occurs. */
-bool
+static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
@@ -601,9 +595,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       upage += PGSIZE;
     }
   
-  // Marks the segment as loaded in struct thread. Used for lazy-loading.
-  struct thread *t = thread_current();
-  bitmap_mark(t->loaded_segments, ofs / PGSIZE);
+  // TODO: mark the segment as loaded in struct thread. Used for lazy-loading.
 
   return true;
 }

@@ -157,23 +157,17 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  // Determines whether to kill the process or not based on the reason of PF
-  //void *paddr = convert_virtual_to_physical(fault_addr);
-  void *paddr = NULL;
-
   // TODO: check if there was an attempt to write to read-only page
   // TODO: implement lazy-loading of executables
 
-  if (paddr == NULL) {
-    /* To implement virtual memory, delete the rest of the function
-      body, and replace it with code that brings in the page to
-      which fault_addr refers. */
-    printf ("Page fault at %p: %s error %s page in %s context.\n",
-            fault_addr,
-            not_present ? "not present" : "rights violation",
-            write ? "writing" : "reading",
-            user ? "user" : "kernel");
-    kill (f);
-  }
+  /* To implement virtual memory, delete the rest of the function
+    body, and replace it with code that brings in the page to
+    which fault_addr refers. */
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+  kill (f);
 }
 
