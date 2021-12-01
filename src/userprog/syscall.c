@@ -56,7 +56,7 @@ hash_less_fun_b (const struct hash_elem *a,
 }
 
 struct lock filesystem_lock;
-uint32_t (*syscall_functions[13])(void **, void **, void **) = {
+uint32_t (*syscall_functions[15])(void **, void **, void **) = {
     &halt_userprog,
     &exit_userprog,
     &exec_userprog,
