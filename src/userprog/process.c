@@ -126,7 +126,7 @@ process_execute (const char *cmd_args)
     free(args_list);
 
     return -1;
-    
+
   } else {
     file_close(file);
   }
@@ -410,7 +410,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Open executable file. */
   file = filesys_open (file_name);
-  file_deny_write(file);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -501,6 +500,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  file_deny_write(file);
   return success;
 }
 

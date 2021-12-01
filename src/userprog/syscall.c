@@ -216,8 +216,9 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   void *buffer = *arg2;
   validate_user_pointer((uint32_t *) buffer);
   unsigned size = *((unsigned *) arg3);
-  if (size == 0)
+  if (size == 0) {
     return 0;
+  }
 
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
@@ -237,7 +238,7 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
 
-  if(!file) {
+  if(!file || file->deny_write) {
     lock_release(&filesystem_lock);
     return 0;
   }
