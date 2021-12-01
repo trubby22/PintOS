@@ -3,9 +3,12 @@
 #include <hash.h>
 #include <palloc.h>
 #include <debug.h>
+#include <malloc.h>
+#include <pagedir.h>
 
 #define MAX_FRAME_TABLE_SIZE 100 //If met evictions are needed
 #define frameid int
+#define EVICTED -1
 
 /* A frame table maps a frame to a user page. */
 struct frametable
@@ -18,10 +21,11 @@ struct frametable
 struct frame
 {
   frameid id;              //key
-  void* address;           //value?
-  //Needs to track owner?
+  void* address;           //value
+  uint32_t *pd;            //page directory that owns this frame
+  void* uaddr;             //page that owns this frame
   bool save;               //If 1 then frame is saved
-  struct hash_elem elem;  //Elem to be part of frame table
+  struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
 };
 
@@ -37,33 +41,14 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
 
 }
 
-struct frametable *frame_table;
-frame_table->head  = NULL;
-frame_table->size  = 0;
-hash_init(frame_table->table, frame_hash, frame_less);
+static struct frametable *frame_table;
 
-/* 
-Contains:
-  - a pointer to a page
-  - additional information
-
-Allows us to implement an eviction policy.
-
-Eviction policy is used when no frames are free.
-*/
-
-// TODO: Use palloc_get_page(PAL_USER) to create a frame for a user page.
-// TODO: Add function to obtain an unused frame.
-// TODO: Implement frame freeing via an eviction policy.
-
-/* If no frame can be evicted without allocating a swap slot & swap is full, kernel panic */
-
-/* 
-Eviction policy
-  - Chose a frame to evict
-  - Remove all references to this frame from all page tables
-  - If necessary, write the page to the file system or to swap
-*/
+void init_frame_table()
+{
+  frame_table->head  = NULL;
+  frame_table->size  = 0;
+  hash_init(&frame_table->table, frame_hash, frame_less);
+}
 
 /* Looks up frame with frameid FID in the frame table 
    returns NULL if the frame does not exist */
@@ -78,19 +63,20 @@ uint32_t lookup_frame(frameid fid){
   }
   //hit
   struct frame *frame = hash_entry(f, struct frame, elem);
-  f -> save = 1;
   return f -> address;
 }
 
+
 /* Returns a new frame. Evicts if needed */
-frameid get_frame (){
-  //New frames should be malloc'd
+frameid get_frame (void){ 
   struct frame* frame;
 	if (frame_table -> size == MAX_FRAME_TABLE_SIZE)
 	{
     //Should call frame = evict (frame_table -> head); but will just panic for now
 		PANIC("Ran out of free frames");
 	} else{
+    //Should panic if this fails
+    struct frame* frame = malloc(sizeof(struct frame));
 		//use palloc user page to create a new frame
     frame -> address = palloc_get_page(PAL_USER);
     //fix circular queue
@@ -105,15 +91,20 @@ frameid get_frame (){
 	return frame -> id;
 }
 
+
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
 static struct frame *evict (struct frame *head){
-  bool save = head->save;
+  void *uaddr = head -> uaddr;
+  uint32_t *pd = head -> pd;
+  save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr)
   if (save){
-    head -> save = 0;
+    pagedir_reset(pd,uaddr);
     return evict(head->next);
   }
 	//Allocate swap slot
+  //Remove all old references to this frame 
+  
 	frame_table -> head = head -> next;
 	return head;
 }

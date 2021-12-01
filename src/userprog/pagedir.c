@@ -214,6 +214,18 @@ pagedir_set_accessed (uint32_t *pd, const void *vpage, bool accessed)
     }
 }
 
+/* Resets both acessed and dirty bits to zero */
+void
+pagedir_reset (uint32_t *pd, const void *vpage){
+  uint32_t *pte = lookup_page (pd, vpage, false);
+  if (pte != NULL) 
+    {
+      *pte &= ~(uint32_t) PTE_D;
+      *pte &= ~(uint32_t) PTE_A; 
+      invalidate_pagedir (pd);
+    }
+}
+
 /* Loads page directory PD into the CPU's page directory base
    register. */
 void
