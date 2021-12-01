@@ -70,7 +70,7 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          pt = palloc_get_page (PAL_ZERO);
+          pt = palloc_get_page (PAL_ZERO); //Should swicth for get_frame?
           if (pt == NULL) 
             return NULL; 
       
@@ -131,7 +131,7 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   
   pte = lookup_page (pd, uaddr, false);
   if (pte != NULL && (*pte & PTE_P) != 0)
-    return pte_get_page (*pte) + pg_ofs (uaddr);
+    return pte_get_page (*pte) + pg_ofs (uaddr); //frame_lookup
   else
     return NULL;
 }
@@ -216,7 +216,8 @@ pagedir_set_accessed (uint32_t *pd, const void *vpage, bool accessed)
 
 /* Resets both acessed and dirty bits to zero */
 void
-pagedir_reset (uint32_t *pd, const void *vpage){
+pagedir_reset (uint32_t *pd, const void *vpage)
+{
   uint32_t *pte = lookup_page (pd, vpage, false);
   if (pte != NULL) 
     {
