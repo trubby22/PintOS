@@ -605,15 +605,21 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack (void **esp) 
 {
+  create_stack_page(esp, 1);
+}
+
+static bool
+create_stack_page (void **esp, uint32_t pg_num)
+{
   uint8_t *kpage;
   bool success = false;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      success = install_page (((uint8_t *) PHYS_BASE) - (PGSIZE * (pg_num - 1)), kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE - (PGSIZE * (pg_num - 1)) - 12;
       else
         palloc_free_page (kpage);
     }
