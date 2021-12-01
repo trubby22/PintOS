@@ -105,11 +105,6 @@ struct thread
     struct list children;
     struct child *info;
 
-    // Total number of segments (program headers) to load from executable
-    int phnum;
-    // Keeps track of what segments have already been loaded.
-    struct bitmap *loaded_segments;
-
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
