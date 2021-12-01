@@ -56,6 +56,8 @@ hash_less_fun_b (const struct hash_elem *a,
 }
 
 struct lock filesystem_lock;
+struct lock console_lock;
+
 uint32_t (*syscall_functions[15])(void **, void **, void **) = {
     &halt_userprog,
     &exit_userprog,
@@ -78,6 +80,7 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&filesystem_lock);
+  lock_init(&console_lock);
 }
 
 void
@@ -213,32 +216,30 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   if (size == 0)
     return 0;
 
-  lock_acquire(&filesystem_lock);
-  
   if (fd == STDOUT_FILENO) {
     unsigned remaining = size;
     int offset = 0;
 
+    lock_acquire(&console_lock);
     while (remaining > CONSOLE_LIMIT) {
       putbuf(buffer + offset, CONSOLE_LIMIT);
       remaining -= CONSOLE_LIMIT;
       offset += CONSOLE_LIMIT;
     }
     putbuf(buffer + offset, remaining);
-
-    lock_release(&filesystem_lock);
+    lock_release(&console_lock);
     return size;
   }
 
+  lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
 
-  lock_release(&filesystem_lock);
-
-  if(file == NULL) {
+  if(!file)
     return 0;
-  }
 
-  return file_write (file, buffer, size);
+  off_t written_size = file_write (file, buffer, size);
+  lock_release(&filesystem_lock);
+  return written_size;
 }
 
 uint32_t 
@@ -305,16 +306,15 @@ close_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
   lock_acquire(&filesystem_lock);
 
   struct file_hash_item *f = get_file_hash_item_or_null(fd);
-  if(f == NULL) {
+  if (!f) {
     lock_release(&filesystem_lock);
     syscall_exit(-1);
-    return VOID_RETURN;
   }
 
   lock_release(&filesystem_lock);
 
   //Remove it from this processess hash table then 'close'
-  if(!hash_delete(get_process_item()->files, &f->elem))
+  if (!hash_delete(get_process_item()->files, &f->elem))
   {
     syscall_exit(-1);
     return VOID_RETURN;
@@ -331,29 +331,29 @@ read_userprog (void **arg1, void **arg2, void **arg3)
   void *buffer = *((void **) arg2);
   unsigned size = *((unsigned *) arg3);
   validate_user_pointer((uint32_t *) buffer);
-  lock_acquire(&filesystem_lock);
 
   if (fd == STDIN_FILENO) {
     char* console_out = (char *) buffer;
-    uint8_t cur_key = input_getc();
     unsigned key_count = 0;
     int offset = strlen(console_out);
 
+    lock_acquire(&console_lock);
+    uint8_t cur_key = input_getc();
     while((char)cur_key != '\n') {
       console_out[offset + key_count] = (char)cur_key;
       key_count += 1;
       if(key_count == size) {
-        lock_release(&filesystem_lock);
+        lock_release(&console_lock);
         return size;
       }
       cur_key = input_getc();
     }
-    lock_release(&filesystem_lock);
+    lock_release(&console_lock);
     return key_count;
   }
 
+  lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
-
   lock_release(&filesystem_lock);
 
   if(file == NULL) {
