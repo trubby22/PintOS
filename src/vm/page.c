@@ -1,6 +1,7 @@
 #include "vm/page.h"
 #include "lib/kernel/bitmap.h"
 #include "threads/thread.h"
+#include "userprog/process.h"
 
 static struct supp_page_table sp_table;
 
@@ -21,10 +22,15 @@ void *convert_virtual_to_physical(void *vaddr) {
 
   struct thread *t = thread_current();
 
+  // Gets name of executable in case lazy-loading needs to be performed
+  char *file_name = thread_name();
+
+  uint8_t upage = 0;
+
   // Tests whether the queried address belongs to a page that has already been loaded from the executable. Assumption: page_number = segment number.
   if (!bitmap_test(t->loaded_segments, page_number)) {
     // TODO: Lazy-load segment
-    
+    load_segment(file_name, (off_t) page_number, &upage, );
   }
 
   // Assuming pid = tid
@@ -37,9 +43,6 @@ void *convert_virtual_to_physical(void *vaddr) {
   dummy.page_number = page_number;
   
   struct hash_elem *target_elem = hash_find(&sp_table.table, &dummy.elem);
-
-  // Gets name of executable in case lazy-loading needs to be performed
-  char *file_name = thread_name();
 
   uint32_t frame_number;
   if (target_elem == NULL) {
