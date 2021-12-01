@@ -1,10 +1,10 @@
 #include "vm/frame.h"
 #include <stdbool.h>
 #include <hash.h>
-#include <palloc.h>
+#include "threads/palloc.h"
 #include <debug.h>
-#include <malloc.h>
-#include <pagedir.h>
+#include "threads/malloc.h"
+#include "userprog/pagedir.h"
 
 #define MAX_FRAME_TABLE_SIZE 100 //If met evictions are needed
 #define frameid int
@@ -31,7 +31,7 @@ struct frame
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
-  struct frame *f = hash_entry(e, frame, elem);
+  struct frame *f = hash_entry(e, struct frame, elem);
   return f -> id;
 }
 
@@ -47,7 +47,7 @@ void init_frame_table()
 {
   frame_table->head  = NULL;
   frame_table->size  = 0;
-  hash_init(&frame_table->table, frame_hash, frame_less);
+  hash_init(&frame_table->table, frame_hash, frame_less, NULL);
 }
 
 /* Looks up frame with frameid FID in the frame table 
@@ -55,7 +55,6 @@ void init_frame_table()
 uint32_t lookup_frame(frameid fid){
   //search table using dummy elem
   struct hash_elem *dummy_f;
-  dummy_f -> id = fid;
   struct hash_elem *f = hash_find(frame_table, dummy_f);
   //miss
   if (!f){
@@ -63,7 +62,7 @@ uint32_t lookup_frame(frameid fid){
   }
   //hit
   struct frame *frame = hash_entry(f, struct frame, elem);
-  return f -> address;
+  return frame -> address;
 }
 
 
@@ -97,7 +96,7 @@ frameid get_frame (void){
 static struct frame *evict (struct frame *head){
   void *uaddr = head -> uaddr;
   uint32_t *pd = head -> pd;
-  save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr)
+  bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
   if (save){
     pagedir_reset(pd,uaddr);
     return evict(head->next);
