@@ -4,6 +4,8 @@
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "threads/palloc.h"
 #include "vm/page.h"
 
 /* Number of page faults processed. */
@@ -139,6 +141,14 @@ page_fault (struct intr_frame *f)
      be assured of reading CR2 before it changed). */
   intr_enable ();
 
+   //Check that the user stack pointer appears to be in stack space:
+  void *esp = f->esp;
+
+   //Check if it's a stack addr
+  if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
+
+  }
+
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -148,7 +158,8 @@ page_fault (struct intr_frame *f)
   user = (f->error_code & PF_U) != 0;
 
   // Determines whether to kill the process or not based on the reason of PF
-  void *paddr = convert_virtual_to_physical(fault_addr);
+  //void *paddr = convert_virtual_to_physical(fault_addr);
+  void *paddr = NULL;
 
   // TODO: check if there was an attempt to write to read-only page
   // TODO: implement lazy-loading of executables
