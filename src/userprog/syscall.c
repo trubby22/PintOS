@@ -236,6 +236,7 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   struct file *file = get_file_or_null(fd);
 
   if(!file)
+    lock_release(&filesystem_lock);
     return 0;
 
   off_t written_size = file_write (file, buffer, size);
