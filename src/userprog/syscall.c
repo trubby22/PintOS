@@ -1,19 +1,21 @@
 #include "lib/user/syscall.h"
+#include "lib/stdio.h"
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
-#include "threads/vaddr.h"
-#include <syscall-nr.h>
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include "filesys/inode.h"
+#include "threads/vaddr.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
-#include "devices/shutdown.h"
 #include "threads/malloc.h"
+#include "threads/palloc.h"
 #include "devices/input.h"
+#include "devices/shutdown.h"
 #include <string.h>
-#include "lib/stdio.h"
+#include <syscall-nr.h>
 
 #define VOID_RETURN 0
 
@@ -234,8 +236,10 @@ write_userprog (void **arg1, void **arg2, void **arg3)
   lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
 
-  if(!file)
+  if (!file) {
+    lock_release(&filesystem_lock);
     return 0;
+  }
 
   off_t written_size = file_write (file, buffer, size);
   lock_release(&filesystem_lock);
@@ -354,12 +358,14 @@ read_userprog (void **arg1, void **arg2, void **arg3)
 
   lock_acquire(&filesystem_lock);
   struct file *file = get_file_or_null(fd);
-  lock_release(&filesystem_lock);
 
   if(file == NULL) {
+    lock_release(&filesystem_lock);
     return -1;
   }
-  return file_read (file, (void *) buffer, size);
+  off_t result = file_read (file, (void *) buffer, size);
+  lock_release(&filesystem_lock);
+  return result;
 }
 
 uint32_t
@@ -401,8 +407,45 @@ uint32_t
 mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
 {
   int fd = *((int *) arg1);
-  void *address = (void *) *((uint32_t **) arg2);
-  return 0; // TODO: complete mmap function
+  void *addr = (void *) *((uint32_t **) arg2);
+
+  if (fd == 0 || fd == 1) {
+    return -1;
+  }
+
+  if (pg_ofs(addr)) {
+    return -1;
+  }
+
+  lock_acquire(&filesystem_lock);
+  // copy in data from fd into memory ar addr
+  struct file *target_file = get_file_or_null(fd);
+
+  if (!target_file) {
+    lock_release(&filesystem_lock);
+    syscall_exit(-1);
+  }
+
+  uint32_t size = file_length(fd);
+
+  if (size == 0) {
+    lock_release(&filesystem_lock);
+    return -1;
+  }
+  int pgcnt = size / PGSIZE;
+  void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
+
+  if (!pages) {
+    lock_release(&filesystem_lock);
+    syscall_exit(-1);
+  }
+
+  for (int i = 0; i < pgcnt; i++)
+    install_page(addr + (PGSIZE * i), pages + (PGSIZE * i), 0);
+
+  off_t success = file_read(target_file, addr, 0);
+
+  return success;
 }
 
 uint32_t
@@ -419,11 +462,11 @@ uint32_t file_size_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED
 
   struct file *target_file = get_file_or_null(fd);
 
-  if(target_file == NULL) {
-    syscall_exit(-1);
+  if(!target_file) {
     lock_release(&filesystem_lock);
-    return VOID_RETURN;
+    syscall_exit(-1);
   }
+
   uint32_t fs = file_length (target_file);
   lock_release(&filesystem_lock);
 
