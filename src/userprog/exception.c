@@ -146,7 +146,11 @@ page_fault (struct intr_frame *f)
 
    //Check if it's a stack addr
   if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
-     thread_current() -> page_count += 1;
+     uint32_t new_count = thread_current() -> page_count + 1;
+     thread_current() -> page_count = new_count;
+
+      //Create new page if overflowed
+     create_stack_page (&esp, new_count);
   }
 
   /* Count page faults. */
