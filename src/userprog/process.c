@@ -600,7 +600,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-static bool
+bool
 create_stack_page (void **esp, uint32_t pg_num)
 {
   uint8_t *kpage;
