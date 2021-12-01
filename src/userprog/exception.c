@@ -146,7 +146,7 @@ page_fault (struct intr_frame *f)
 
    //Check if it's a stack addr
   if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
-
+     thread_current() -> page_count += 1;
   }
 
   /* Count page faults. */
