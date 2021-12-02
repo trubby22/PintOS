@@ -413,7 +413,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
     return -1;
   }
 
-  if (pg_ofs(addr)) {
+  if (pg_ofs(addr) || !addr) {
     return -1;
   }
 
@@ -426,26 +426,43 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
     syscall_exit(-1);
   }
 
-  uint32_t size = file_length(fd);
+  uint32_t size = file_length(target_file);
 
   if (size == 0) {
     lock_release(&filesystem_lock);
     return -1;
   }
-  int pgcnt = size / PGSIZE;
-  void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
 
+  int pgcnt = size / PGSIZE;
+  if (size % PGSIZE)
+    pgcnt++;
+
+  for (int i = 0; i < pgcnt; i++) {
+    if (pagedir_get_page(thread_current()->pagedir, addr + PGSIZE * i)) {
+      lock_release(&filesystem_lock);
+      return -1;
+    }
+  }
+
+    void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
+  
   if (!pages) {
     lock_release(&filesystem_lock);
     syscall_exit(-1);
   }
 
   for (int i = 0; i < pgcnt; i++)
-    install_page(addr + (PGSIZE * i), pages + (PGSIZE * i), 0);
+    install_page(addr + (PGSIZE * i), pages + (PGSIZE * i), 1);
 
-  off_t success = file_read(target_file, addr, 0);
+  off_t bytes_loaded = file_read(target_file, addr, size);
+  // printf("Bytes loaded: %u, Size: %u\n", bytes_loaded, size);
+  if (bytes_loaded != size) {
+    lock_release(&filesystem_lock);
+    return -1;
+  }
 
-  return success;
+  lock_release(&filesystem_lock);
+  return 0;
 }
 
 uint32_t
