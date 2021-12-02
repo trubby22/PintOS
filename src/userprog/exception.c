@@ -8,6 +8,9 @@
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
 #include "vm/page.h"
+#include "lib/kernel/hash.h"
+#include "lib/kernel/list.h"
+#include "userprog/process.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -164,6 +167,27 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+
+  if (not_present && user) {
+    struct thread *t = thread_current();
+    struct spt *spt = &t->spt;
+    struct list *segments = &spt->segments;
+
+    if (fault_addr >= EXE_BASE && fault_addr <= EXE_BASE + spt->size) {
+      struct list_elem *e;
+
+      for (e = list_begin (segments); e != list_end (segments);
+           e = list_next (e))
+        {
+          struct segment *seg = list_entry (e, struct segment, elem);
+          
+          if (fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
+            load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
+            return;
+          }
+        }
+    }
+  }
 
   // TODO: check if there was an attempt to write to read-only page
   // TODO: implement lazy-loading of executables
