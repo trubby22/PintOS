@@ -5,6 +5,7 @@
 #include "filesys/off_t.h"
 #include <stdbool.h>
 #include "lib/kernel/list.h"
+#include "lib/kernel/hash.h"
 
 #define EXE_BASE 0x08084000
 
@@ -14,11 +15,17 @@ struct spt {
   uint32_t size;
   // File containing executable
   struct file *file;
+  // struct list segments;
   struct list segments;
 };
 
 // Executable segment
-struct exe_seg {
+struct segment {
+  // Start and end addresses of segment after it's been loaded to user virtual memory
+  uint32_t start_addr;
+  uint32_t end_addr;
+
+  // Metadata passed in to load_segment
   // Offset within executable file
   off_t ofs;
   // Address at which the segment is to be saved
@@ -29,8 +36,13 @@ struct exe_seg {
   uint32_t zero_bytes;
   // Says whether segment can be written to. If false, segment is read-only.
   bool writable;
-  // Elem for adding to list segments in spt
+  // Elem for adding to hash segments in spt
   struct list_elem elem;
 };
+
+struct spt *create_spt(void);
+
+// unsigned seg_hash_func (const struct hash_elem *e, void *aux);
+// bool seg_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 #endif
