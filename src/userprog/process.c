@@ -428,11 +428,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", file_name);
       goto done; 
     }
+  
+  struct spt *spt = &t->spt;
+  spt->file = file;
+  spt->size = 0;
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
+      struct segment seg;
+
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
@@ -478,9 +484,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   read_bytes = 0;
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
-              if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
-                goto done;
+
+              seg.ofs = file_page;
+              seg.upage = mem_page;
+              seg.read_bytes = read_bytes;
+              seg.zero_bytes = zero_bytes;
+              seg.writable = writable;
+
+              list_push_back(&spt->segments, &seg.elem);
+
+              spt->size += read_bytes;
+
+              // if (!load_segment (file, file_page, (void *) mem_page,
+              //                    read_bytes, zero_bytes, writable))
+              //   goto done;
             }
           else
             goto done;

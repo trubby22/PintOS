@@ -18,7 +18,7 @@ struct spt {
 };
 
 // Executable segment
-struct exe_seg {
+struct segment {
   // Offset within executable file
   off_t ofs;
   // Address at which the segment is to be saved
@@ -32,5 +32,7 @@ struct exe_seg {
   // Elem for adding to list segments in spt
   struct list_elem elem;
 };
+
+struct spt *create_spt(void);
 
 #endif
