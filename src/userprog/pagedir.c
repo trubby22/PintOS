@@ -5,6 +5,7 @@
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
+#include "vm/frame.h"
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -70,8 +71,8 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          pt = palloc_get_page (PAL_ZERO); //Should swicth for get_frame?
-          if (pt == NULL) 
+          pt = get_frame(pd, vaddr);
+          if (pt == NULL) //get frame should never return null
             return NULL; 
       
           *pde = pde_create (pt);
@@ -130,8 +131,8 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   ASSERT (is_user_vaddr (uaddr));
   
   pte = lookup_page (pd, uaddr, false);
-  if (pte != NULL && (*pte & PTE_P) != 0)
-    return pte_get_page (*pte) + pg_ofs (uaddr); //frame_lookup
+  if (pte != NULL && (*pte & PTE_P) != 0) //If page has lost its frame give it a new one
+    return pte_get_page (*pte) + pg_ofs (uaddr); //pte_get_page = frame_lookup?
   else
     return NULL;
 }
