@@ -14,6 +14,7 @@
 #include "threads/palloc.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
+#include "vm/mmap.h"
 #include <string.h>
 #include <syscall-nr.h>
 
@@ -83,6 +84,7 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init(&filesystem_lock);
   lock_init(&console_lock);
+  mmap_init();
 }
 
 void
@@ -422,44 +424,54 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   }
 
   lock_acquire(&filesystem_lock);
-  // copy in data from fd into memory ar addr
+
   struct file *target_file = get_file_or_null(fd);
 
+  // If getting the file fails, exit with -1
   if (!target_file) {
     lock_release(&filesystem_lock);
     syscall_exit(-1);
   }
 
+  // Get filesize
   uint32_t size = file_length(target_file);
 
+  // Ensure file is not empty
   if (size == 0) {
     lock_release(&filesystem_lock);
     return -1;
   }
 
+  // Calculate number of pages needed
   int pgcnt = size / PGSIZE;
   if (size % PGSIZE)
     pgcnt++;
 
+  // Check the virtual space is available
   for (int i = 0; i < pgcnt; i++) {
-    if (pagedir_get_page(thread_current()->pagedir, addr + PGSIZE * i)) {
+    if (pagedir_get_page(thread_current ()->pagedir, addr + PGSIZE * i)) {
       lock_release(&filesystem_lock);
       return -1;
     }
   }
 
-    void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
+  void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
   
+  // Check the palloc worked
   if (!pages) {
     lock_release(&filesystem_lock);
     syscall_exit(-1);
   }
 
+  // Store the mapping in the list
+  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, pages);
+
+  // Make the mapping
   for (int i = 0; i < pgcnt; i++)
     install_page(addr + (PGSIZE * i), pages + (PGSIZE * i), 1);
 
   off_t bytes_loaded = file_read(target_file, addr, size);
-  // printf("Bytes loaded: %u, Size: %u\n", bytes_loaded, size);
+
   if (bytes_loaded != size) {
     lock_release(&filesystem_lock);
     return -1;
@@ -472,7 +484,8 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
 uint32_t
 munmap_userprog(void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
-  mapid_t mapping = *((int *) arg1);
+  mapid_t mapid = *((int *) arg1);
+  mmap_remove_mapping(mapid);
   return VOID_RETURN;
 }
 
