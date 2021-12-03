@@ -167,11 +167,12 @@ page_fault (struct intr_frame *f)
         {
           struct segment *seg = list_entry (e, struct segment, elem);
           
-          if (fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
+          if (!seg->loaded && fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
             acquire_filesystem_lock();
             bool success = load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
             release_filesystem_lock();
             if (success) {
+              seg->loaded = true;
               return;
             }
           }

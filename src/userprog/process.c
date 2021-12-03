@@ -463,6 +463,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
               seg->zero_bytes = zero_bytes;
               seg->writable = writable;
 
+              seg->loaded = false;
+
               seg->start_addr = seg_start;
               seg->end_addr = seg_start + read_bytes + zero_bytes;
 

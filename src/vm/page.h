@@ -26,6 +26,9 @@ struct segment {
   uint32_t start_addr;
   uint32_t end_addr;
 
+  // Denotes whether segment has already been loaded into user virtual memory
+  bool loaded;
+
   // Metadata passed in to load_segment
   // Offset within executable file
   off_t ofs;
