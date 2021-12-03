@@ -50,6 +50,15 @@ get_process_item(void)
   return p;
 }
 
+static void free_args(struct list *args_list) {
+  while (!list_empty (args_list)) {
+    struct list_elem *e = list_pop_front (args_list);
+    struct arg *arg = list_entry (e, struct arg, elem);
+    free(arg->str);
+    free(arg);
+  }
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -61,72 +70,42 @@ process_execute (const char *cmd_args)
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  // Allocate list of arguments
-  struct list *args_list = malloc(sizeof(struct list));
-  if (args_list == NULL) {
-    return TID_ERROR;
-  }
-  list_init(args_list);
+  int size;
+  struct list args_list;
+  list_init(&args_list);
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  char *file_name = palloc_get_page (0);
-  if (file_name == NULL)
-    return TID_ERROR;
-
-  char *cmd_args_cpy = (char *) palloc_get_page(0);
-  if (cmd_args_cpy == NULL) {
-    return TID_ERROR;
-  }
-
-  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
+  char cmd_args_cpy[strlen(cmd_args) + 1];
+  strlcpy(cmd_args_cpy, cmd_args, strlen(cmd_args) + 1);
 
   // Tokenize the command line
   char *token, *save_ptr;
-  int i = 0;
   for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    char *str = palloc_get_page(0);
-    if (str == NULL) {
-      return TID_ERROR;
-    }
-    strlcpy(str, token, (strlen(token) + 1) * sizeof(char));
+    char *str = (char *) malloc(strlen(token) + 1);
+    strlcpy(str, token, strlen(token) + 1);
 
-    struct arg *arg = palloc_get_page(0);
-    if (arg == NULL) {
-      return TID_ERROR;
-    }
+    struct arg *arg = (struct arg *) malloc(sizeof(struct arg));
     arg->str = str;
-
-    list_push_back(args_list, &arg->elem);
-
-    if (i == 0) {
-      strlcpy (file_name, token, PGSIZE);
-    }
-    i++;
+ 
+    list_push_back(&args_list, &arg->elem);
   }
 
-  palloc_free_page(cmd_args_cpy);
+  struct list_elem *e = list_begin(&args_list);
+  struct arg *arg = list_entry (e, struct arg, elem);
+  char *fst_str = arg->str;
+  char file_name[strlen(fst_str) + 1];
+  strlcpy(file_name, fst_str, strlen(fst_str) + 1);
 
   acquire_filesystem_lock();
 
   struct file *file = filesys_open(file_name);
 
   if (file == NULL) {
-
-    palloc_free_page (file_name);
-
-    while (!list_empty (args_list)) {
-      struct list_elem *e = list_pop_front (args_list);
-      struct arg *arg = list_entry (e, struct arg, elem);
-      palloc_free_page(arg);
-    }
-
-    free(args_list);
+    
+    free_args(&args_list);
 
     return -1;
-
   } else {
     file_close(file);
   }
@@ -135,30 +114,19 @@ process_execute (const char *cmd_args)
 
   // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, &args_list);
 
-  palloc_free_page (file_name);
-
-  struct list_elem *e = list_front(&thread_current()->children);
-  struct child *child = list_entry (e, struct child, elem);
+  struct list_elem *e_2 = list_front(&thread_current()->children);
+  struct child *child = list_entry (e_2, struct child, elem);
 
   sema_down(&child->sema);
 
   // By this line the child has already loaded its executable - so we know whether that was a success or not
 
+  free_args(&args_list);
+
   if (child->exit_status == -1) {
     tid = TID_ERROR;
-  }
-
-  // Free malloc'ed resources if the child failed to load and if the child has not exited yet
-  if (tid == TID_ERROR && child->exit_status == -2) {
-    while (!list_empty (args_list)) {
-      struct list_elem *e = list_pop_front (args_list);
-      struct arg *arg = list_entry (e, struct arg, elem);
-      palloc_free_page(arg);
-    }
-  
-    free(args_list);
   }
 
   return tid;
@@ -211,15 +179,6 @@ start_process (void *args_list)
 
   // Initializes the stack and saves stack pointer in interrupt frame
   if_.esp = init_stack((struct list *) args_list);
-
-  // Free structs malloc'ed in process_execute
-  while (!list_empty (args_list)) {
-    struct list_elem *e = list_pop_front (args_list);
-    struct arg *arg = list_entry (e, struct arg, elem);
-    palloc_free_page(arg);
-  }
-
-  free(args_list);
 
   /* If load failed, quit. */
   if (!success) 
