@@ -497,9 +497,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
               spt->size += read_bytes;
 
-              // if (!load_segment (file, file_page, (void *) mem_page,
-              //                    read_bytes, zero_bytes, writable))
-              //   goto done;
+              if (!load_segment (file, file_page, (void *) mem_page,
+                                 read_bytes, zero_bytes, writable))
+                goto done;
             }
           else
             goto done;
