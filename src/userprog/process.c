@@ -83,9 +83,15 @@ process_execute (const char *cmd_args)
        token = strtok_r(NULL, " ", &save_ptr))
   {
     char *str = (char *) malloc(strlen(token) + 1);
+    if (str == NULL) {
+      PANIC ("Failed to malloc char * in process.c/process_execute");
+    }
     strlcpy(str, token, strlen(token) + 1);
 
     struct arg *arg = (struct arg *) malloc(sizeof(struct arg));
+    if (arg == NULL) {
+      PANIC ("Failed to malloc struct arg in process.c/process_execute");
+    }
     arg->str = str;
  
     list_push_back(&args_list, &arg->elem);
@@ -392,13 +398,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct list *segments = &spt->segments;
   spt->file = file;
   spt->size = 0;
+  uint32_t seg_start = EXE_BASE;
   list_init(segments);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
-      struct segment seg;
+      // TODO: remember to free seg
+      struct segment *seg = (struct segment *) malloc(sizeof(struct segment));
+      if (seg == NULL) {
+        PANIC ("Failed to malloc struct segment in process.c/load");
+      }
 
       struct Elf32_Phdr phdr;
 
@@ -446,15 +457,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
 
-              seg.ofs = file_page;
-              seg.upage = (uint8_t *) mem_page;
-              seg.read_bytes = read_bytes;
-              seg.zero_bytes = zero_bytes;
-              seg.writable = writable;
+              seg->ofs = file_page;
+              seg->upage = (uint8_t *) mem_page;
+              seg->read_bytes = read_bytes;
+              seg->zero_bytes = zero_bytes;
+              seg->writable = writable;
 
-              list_push_back(segments, &seg.elem);
+              seg->start_addr = seg_start;
+              seg->end_addr = seg_start + read_bytes;
+
+              list_push_back(segments, &seg->elem);
 
               spt->size += read_bytes;
+              seg_start += read_bytes;
 
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))

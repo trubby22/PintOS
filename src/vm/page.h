@@ -7,7 +7,8 @@
 #include "lib/kernel/list.h"
 #include "lib/kernel/hash.h"
 
-#define EXE_BASE 0x08084000
+// In the spec it says that it should be: 0x08084000 but from the tests it seems like it's: 0x08048000
+#define EXE_BASE 0x08048000
 
 // Supplemental page table
 struct spt {
