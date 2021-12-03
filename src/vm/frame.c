@@ -25,24 +25,26 @@ struct frame
   struct frame *next;      //Pointer to be part of circular queue for eviction
 };
 
+static void fix_queue(struct frame* new);
+
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
   struct frame *f = hash_entry(e, struct frame, elem);
-  return f -> frame_number;
+  return f -> address;
 }
 
-bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux)
+bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
   return frame_hash(a,NULL) < frame_hash(b, NULL);
-
 }
 
-static struct frametable *frame_table;
+static struct frametable frame_table;
 
-void init_frame_table()
+void init_frame_table(void)
 {
-  frame_table->head  = NULL;
-  hash_init(&frame_table->table, frame_hash, frame_less, NULL);
+  struct hash table;
+  frame_table.table = table;
+  hash_init(&table, frame_hash, frame_less, NULL);
 }
 
 /* Looks up frame with frameid FID in the frame table 
@@ -51,7 +53,7 @@ void init_frame_table()
 uint32_t lookup_frame(uint32_t frame_number){
   //search table using dummy elem
   struct hash_elem *dummy_f;
-  struct hash_elem *f = hash_find(frame_table, dummy_f);
+  struct hash_elem *f = hash_find(&frame_table.table, dummy_f);
   //miss
   if (!f){
     return NULL;
@@ -72,20 +74,30 @@ void* get_frame (uint32_t *pd, void *vaddr){
     //Should call frame = evict (frame_table -> head); but will just panic for now
 		PANIC("Ran out of free frames");
 	} else{
-    //Should panic if this fails
-    struct frame* frame = malloc(sizeof(struct frame));
-		//use palloc user page to create a new frame
+    frame = malloc(sizeof(struct frame));
+    ASSERT(frame);
     frame -> address = frame_address;
-    frame -> frame_number = ((uint32_t) frame_address) >> 12; //Correct?
+    //frame -> frame_number = ((uint32_t) frame_address) >> 12; //Correct?
     //fix circular queue
-		struct frame *head = frame_table -> head;
-		frame -> next  = head -> next;
-		head -> next = frame;
-		frame_table -> head = frame -> next;
+    fix_queue(frame);
     //add to frame table
-    hash_insert(&frame_table->table,&frame->elem);
+    //hash_insert(&frame_table->table,&frame->elem);
 	}
+  frame -> pd = pd;
+  frame -> uaddr = vaddr;
 	return frame -> address;
+}
+
+static void fix_queue(struct frame* new){
+  if (!frame_table.head)
+  {
+    frame_table.head = new;
+    return;
+  }
+	struct frame *head = frame_table.head;
+	new -> next  = head -> next;
+	head -> next = new;
+	frame_table.head = new -> next;
 }
 
 
@@ -104,6 +116,6 @@ static struct frame *evict (struct frame *head){
   //to clear frame reference
   //An aux function would be helpful possibly in pagedir
   
-	frame_table -> head = head -> next;
+	frame_table.head = head -> next;
 	return head;
 }
