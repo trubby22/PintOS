@@ -463,17 +463,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
               seg->zero_bytes = zero_bytes;
               seg->writable = writable;
 
+              seg->loaded = false;
+
               seg->start_addr = seg_start;
-              seg->end_addr = seg_start + read_bytes;
+              seg->end_addr = seg_start + read_bytes + zero_bytes;
 
               list_push_back(segments, &seg->elem);
 
-              spt->size += read_bytes;
-              seg_start += read_bytes;
+              spt->size += read_bytes + zero_bytes;
+              seg_start += read_bytes + zero_bytes;
 
-              if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
-                goto done;
+              // if (!load_segment (file, file_page, (void *) mem_page,
+              //                    read_bytes, zero_bytes, writable))
+              //   goto done;
             }
           else
             goto done;
@@ -492,8 +494,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
-  file_deny_write(file);
+  // file_close (file);
+  // file_deny_write(file);
+  file_seek (file, 0);
   return success;
 }
 
@@ -597,7 +600,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       }
 
       /* Load data into the page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      int file_read_bytes = file_read (file, kpage, page_read_bytes);
+      if (file_read_bytes != (int) page_read_bytes)
         {
           palloc_free_page (kpage);
           return false; 

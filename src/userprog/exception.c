@@ -11,6 +11,7 @@
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -166,9 +167,14 @@ page_fault (struct intr_frame *f)
         {
           struct segment *seg = list_entry (e, struct segment, elem);
           
-          if (fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
-            load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
-            return;
+          if (!seg->loaded && fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
+            acquire_filesystem_lock();
+            bool success = load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
+            release_filesystem_lock();
+            if (success) {
+              seg->loaded = true;
+              return;
+            }
           }
         }
     }
