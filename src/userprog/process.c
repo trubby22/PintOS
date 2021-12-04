@@ -50,6 +50,15 @@ get_process_item(void)
   return p;
 }
 
+static void free_args(struct list *args_list) {
+  while (!list_empty (args_list)) {
+    struct list_elem *e = list_pop_front (args_list);
+    struct arg *arg = list_entry (e, struct arg, elem);
+    free(arg->str);
+    free(arg);
+  }
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -61,72 +70,48 @@ process_execute (const char *cmd_args)
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  // Allocate list of arguments
-  struct list *args_list = malloc(sizeof(struct list));
-  if (args_list == NULL) {
-    return TID_ERROR;
-  }
-  list_init(args_list);
+  int size;
+  struct list args_list;
+  list_init(&args_list);
 
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  char *file_name = palloc_get_page (0);
-  if (file_name == NULL)
-    return TID_ERROR;
-
-  char *cmd_args_cpy = (char *) palloc_get_page(0);
-  if (cmd_args_cpy == NULL) {
-    return TID_ERROR;
-  }
-
-  strlcpy(cmd_args_cpy, cmd_args, (strlen(cmd_args) + 1) * sizeof(char));
+  char cmd_args_cpy[strlen(cmd_args) + 1];
+  strlcpy(cmd_args_cpy, cmd_args, strlen(cmd_args) + 1);
 
   // Tokenize the command line
   char *token, *save_ptr;
-  int i = 0;
   for (token = strtok_r(cmd_args_cpy, " ", &save_ptr); token != NULL;
        token = strtok_r(NULL, " ", &save_ptr))
   {
-    char *str = palloc_get_page(0);
+    char *str = (char *) malloc(strlen(token) + 1);
     if (str == NULL) {
-      return TID_ERROR;
+      PANIC ("Failed to malloc char * in process.c/process_execute");
     }
-    strlcpy(str, token, (strlen(token) + 1) * sizeof(char));
+    strlcpy(str, token, strlen(token) + 1);
 
-    struct arg *arg = palloc_get_page(0);
+    struct arg *arg = (struct arg *) malloc(sizeof(struct arg));
     if (arg == NULL) {
-      return TID_ERROR;
+      PANIC ("Failed to malloc struct arg in process.c/process_execute");
     }
     arg->str = str;
-
-    list_push_back(args_list, &arg->elem);
-
-    if (i == 0) {
-      strlcpy (file_name, token, PGSIZE);
-    }
-    i++;
+ 
+    list_push_back(&args_list, &arg->elem);
   }
 
-  palloc_free_page(cmd_args_cpy);
+  struct list_elem *e = list_begin(&args_list);
+  struct arg *arg = list_entry (e, struct arg, elem);
+  char *fst_str = arg->str;
+  char file_name[strlen(fst_str) + 1];
+  strlcpy(file_name, fst_str, strlen(fst_str) + 1);
 
   acquire_filesystem_lock();
 
   struct file *file = filesys_open(file_name);
 
   if (file == NULL) {
-
-    palloc_free_page (file_name);
-
-    while (!list_empty (args_list)) {
-      struct list_elem *e = list_pop_front (args_list);
-      struct arg *arg = list_entry (e, struct arg, elem);
-      palloc_free_page(arg);
-    }
-
-    free(args_list);
+    
+    free_args(&args_list);
 
     return -1;
-
   } else {
     file_close(file);
   }
@@ -135,30 +120,19 @@ process_execute (const char *cmd_args)
 
   // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, args_list);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, &args_list);
 
-  palloc_free_page (file_name);
-
-  struct list_elem *e = list_front(&thread_current()->children);
-  struct child *child = list_entry (e, struct child, elem);
+  struct list_elem *e_2 = list_front(&thread_current()->children);
+  struct child *child = list_entry (e_2, struct child, elem);
 
   sema_down(&child->sema);
 
   // By this line the child has already loaded its executable - so we know whether that was a success or not
 
+  free_args(&args_list);
+
   if (child->exit_status == -1) {
     tid = TID_ERROR;
-  }
-
-  // Free malloc'ed resources if the child failed to load and if the child has not exited yet
-  if (tid == TID_ERROR && child->exit_status == -2) {
-    while (!list_empty (args_list)) {
-      struct list_elem *e = list_pop_front (args_list);
-      struct arg *arg = list_entry (e, struct arg, elem);
-      palloc_free_page(arg);
-    }
-  
-    free(args_list);
   }
 
   return tid;
@@ -211,15 +185,6 @@ start_process (void *args_list)
 
   // Initializes the stack and saves stack pointer in interrupt frame
   if_.esp = init_stack((struct list *) args_list);
-
-  // Free structs malloc'ed in process_execute
-  while (!list_empty (args_list)) {
-    struct list_elem *e = list_pop_front (args_list);
-    struct arg *arg = list_entry (e, struct arg, elem);
-    palloc_free_page(arg);
-  }
-
-  free(args_list);
 
   /* If load failed, quit. */
   if (!success) 
@@ -433,13 +398,18 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct list *segments = &spt->segments;
   spt->file = file;
   spt->size = 0;
+  uint32_t seg_start = EXE_BASE;
   list_init(segments);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
-      struct segment seg;
+      // TODO: remember to free seg
+      struct segment *seg = (struct segment *) malloc(sizeof(struct segment));
+      if (seg == NULL) {
+        PANIC ("Failed to malloc struct segment in process.c/load");
+      }
 
       struct Elf32_Phdr phdr;
 
@@ -487,19 +457,25 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
 
-              seg.ofs = file_page;
-              seg.upage = (uint8_t *) mem_page;
-              seg.read_bytes = read_bytes;
-              seg.zero_bytes = zero_bytes;
-              seg.writable = writable;
+              seg->ofs = file_page;
+              seg->upage = (uint8_t *) mem_page;
+              seg->read_bytes = read_bytes;
+              seg->zero_bytes = zero_bytes;
+              seg->writable = writable;
 
-              list_push_back(segments, &seg.elem);
+              seg->loaded = false;
 
-              spt->size += read_bytes;
+              seg->start_addr = seg_start;
+              seg->end_addr = seg_start + read_bytes + zero_bytes;
 
-              if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
-                goto done;
+              list_push_back(segments, &seg->elem);
+
+              spt->size += read_bytes + zero_bytes;
+              seg_start += read_bytes + zero_bytes;
+
+              // if (!load_segment (file, file_page, (void *) mem_page,
+              //                    read_bytes, zero_bytes, writable))
+              //   goto done;
             }
           else
             goto done;
@@ -518,8 +494,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
-  file_deny_write(file);
+  // file_close (file);
+  // file_deny_write(file);
+  file_seek (file, 0);
   return success;
 }
 
@@ -623,7 +600,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       }
 
       /* Load data into the page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      int file_read_bytes = file_read (file, kpage, page_read_bytes);
+      if (file_read_bytes != (int) page_read_bytes)
         {
           palloc_free_page (kpage);
           return false; 

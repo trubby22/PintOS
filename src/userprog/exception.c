@@ -11,6 +11,7 @@
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -145,21 +146,6 @@ page_fault (struct intr_frame *f)
      be assured of reading CR2 before it changed). */
   intr_enable ();
 
-   //Check that the user stack pointer appears to be in stack space:
-  void *esp = f->esp;
-
-   //Check if it's a stack addr
-  if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
-     uint32_t new_count = thread_current() -> page_count + 1;
-     thread_current() -> page_count = new_count;
-
-      //Create new page
-     thread_current()->page_addr -= PGSIZE;
-     if (create_stack_page (&esp, new_count)) {
-        return;
-     }
-  }
-
   /* Count page faults. */
   page_fault_cnt++;
 
@@ -181,12 +167,32 @@ page_fault (struct intr_frame *f)
         {
           struct segment *seg = list_entry (e, struct segment, elem);
           
-          if (fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
-            load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
-            return;
+          if (!seg->loaded && fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
+            acquire_filesystem_lock();
+            bool success = load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
+            release_filesystem_lock();
+            if (success) {
+              seg->loaded = true;
+              return;
+            }
           }
         }
     }
+  }
+
+  //Check that the user stack pointer appears to be in stack space:
+  void *esp = f->esp;
+
+  //Check if it's a stack addr
+  if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
+     uint32_t new_count = thread_current() -> page_count + 1;
+     thread_current() -> page_count = new_count;
+
+      //Create new page
+     thread_current()->page_addr -= PGSIZE;
+     if (create_stack_page (&esp, new_count)) {
+        return;
+     }
   }
 
   // TODO: check if there was an attempt to write to read-only page

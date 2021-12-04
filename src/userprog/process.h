@@ -8,6 +8,11 @@ struct arg {
   struct list_elem elem;
 };
 
+struct length {
+  int size;
+  struct list_elem elem;
+};
+
 void init_hash_table (void);
 struct process_hash_item *get_process_item(void);
 

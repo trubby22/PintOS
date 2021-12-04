@@ -7,7 +7,8 @@
 #include "lib/kernel/list.h"
 #include "lib/kernel/hash.h"
 
-#define EXE_BASE 0x08084000
+// In the spec it says that it should be: 0x08084000 but from the tests it seems like it's: 0x08048000
+#define EXE_BASE 0x08048000
 
 // Supplemental page table
 struct spt {
@@ -24,6 +25,9 @@ struct segment {
   // Start and end addresses of segment after it's been loaded to user virtual memory
   uint32_t start_addr;
   uint32_t end_addr;
+
+  // Denotes whether segment has already been loaded into user virtual memory
+  bool loaded;
 
   // Metadata passed in to load_segment
   // Offset within executable file
