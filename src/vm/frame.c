@@ -6,6 +6,7 @@
 #include <inttypes.h>
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
+#include "threads/pte.h"
 
 /* A frame table maps a frame to a user page. */
 struct frametable
@@ -65,7 +66,6 @@ uint32_t lookup_frame(uint32_t frame_number){
 
 
 /* Returns a new frame. Evicts if needed */
-// TODO: Replace calls to palloc_get_page in pagedir to calls to get_frame
 void* get_frame (uint32_t *pd, void *vaddr){ 
   struct frame* frame;
   void *frame_address = palloc_get_page(PAL_USER);
@@ -77,11 +77,10 @@ void* get_frame (uint32_t *pd, void *vaddr){
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = frame_address;
-    //frame -> frame_number = ((uint32_t) frame_address) >> 12; //Correct?
     //fix circular queue
     fix_queue(frame);
     //add to frame table
-    //hash_insert(&frame_table->table,&frame->elem);
+    //hash_insert(&frame_table.table,&frame->elem);
 	}
   frame -> pd = pd;
   frame -> uaddr = vaddr;
@@ -112,9 +111,10 @@ static struct frame *evict (struct frame *head){
     return evict(head->next);
   }
 	//Allocate swap slot for page panic if none left
-  //Remove all old references to this frame by getting the pte and bitwise & with flags
-  //to clear frame reference
-  //An aux function would be helpful possibly in pagedir
+ 
+  //Removes the refernce to this frame in the page table entry
+  uint32_t *pte = get_pte(pd, uaddr);
+  *pte = *pte & PTE_FLAGS;
   
 	frame_table.head = head -> next;
 	return head;
