@@ -564,8 +564,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       // Checks for a "clash", i.e. whether the page has already been loaded by an adjacent segment
-      struct spt_page *prev = list_back(pages);
-      if (prev->upage == upage) {
+      struct spt_page *prev;
+      if (!list_empty(pages)) {
+        prev = list_back(pages);
+      }
+      if (!list_empty(pages) && prev->upage == upage) {
         // If either segment is writable, page must be writable
         prev->writable = prev->writable || writable;
         // Set read_bytes to max of the two segments
@@ -598,7 +601,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Advance. */
       spt->size += PGSIZE;
-      ofs += page_read_bytes;
+      ofs += PGSIZE;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
