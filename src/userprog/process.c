@@ -352,6 +352,9 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+bool load_page (struct file *file, off_t ofs, uint8_t *upage,
+                          uint32_t read_bytes, uint32_t zero_bytes,
+                          bool writable);
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -394,23 +397,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
   
+  // Initializes thread's SPT
   struct spt *spt = &t->spt;
-  struct list *segments = &spt->segments;
+  struct list *pages = &spt->pages;
   spt->file = file;
   spt->size = 0;
-  uint32_t seg_start = EXE_BASE;
-  list_init(segments);
+  list_init(pages);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
-      // TODO: remember to free seg
-      struct segment *seg = (struct segment *) malloc(sizeof(struct segment));
-      if (seg == NULL) {
-        PANIC ("Failed to malloc struct segment in process.c/load");
-      }
-
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
@@ -457,25 +454,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
 
-              seg->ofs = file_page;
-              seg->upage = (uint8_t *) mem_page;
-              seg->read_bytes = read_bytes;
-              seg->zero_bytes = zero_bytes;
-              seg->writable = writable;
-
-              seg->loaded = false;
-
-              seg->start_addr = seg_start;
-              seg->end_addr = seg_start + read_bytes + zero_bytes;
-
-              list_push_back(segments, &seg->elem);
-
-              spt->size += read_bytes + zero_bytes;
-              seg_start += read_bytes + zero_bytes;
-
-              // if (!load_segment (file, file_page, (void *) mem_page,
-              //                    read_bytes, zero_bytes, writable))
-              //   goto done;
+              if (!load_segment (file, file_page, (void *) mem_page,
+                                 read_bytes, zero_bytes, writable))
+                goto done;
             }
           else
             goto done;
@@ -569,55 +550,106 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
+  struct thread *t = thread_current ();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
     {
-      // TODO: implement lazy loading of executables inside this while-loop
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
-      
-      /* Check if virtual page already allocated */
-      struct thread *t = thread_current ();
-      uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
-      
-      if (kpage == NULL){
-        
-        /* Get a new page of memory. */
-        kpage = palloc_get_page (PAL_USER);
-        if (kpage == NULL){
-          return false;
+
+      // Checks for a "clash", i.e. whether the page has already been loaded by an adjacent segment
+      struct spt_page *prev = list_back(pages);
+      if (prev->upage == upage) {
+        // If either segment is writable, page must be writable
+        prev->writable = prev->writable || writable;
+        // Set read_bytes to max of the two segments
+        prev->read_bytes = prev->read_bytes > read_bytes ? prev->read_bytes : read_bytes;
+        prev->zero_bytes = PGSIZE - prev->read_bytes;
+      } else {
+        // TODO: remember to free spt_page
+        struct spt_page *spt_page = (struct spt_page *) malloc(sizeof(struct spt_page));
+        if (spt_page == NULL) {
+          PANIC ("Failed to malloc struct spt_page in process.c/load");
         }
-        
-        /* Add the page to the process's address space. */
-        if (!install_page (upage, kpage, writable)) 
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }        
+
+        // Initializes spt_page
+        spt_page->ofs = ofs;
+        spt_page->upage = upage;
+        spt_page->read_bytes = page_read_bytes;
+        spt_page->zero_bytes = page_zero_bytes;
+        spt_page->writable = writable;
+
+        spt_page->loaded = false;
+
+        spt_page->start_addr = EXE_BASE + spt->size;
+
+        // Adds spt_page to pages list in spt
+        list_push_back(pages, &spt_page->elem);
       }
 
-      /* Load data into the page. */
-      int file_read_bytes = file_read (file, kpage, page_read_bytes);
-      if (file_read_bytes != (int) page_read_bytes)
-        {
-          palloc_free_page (kpage);
-          return false; 
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+      // Moves file's head
+      file->pos += page_read_bytes;
 
       /* Advance. */
+      spt->size += PGSIZE;
+      ofs += page_read_bytes;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
     }
-  
-  // TODO: mark the segment as loaded in struct thread. Used for lazy-loading.
 
   return true;
 }
+
+// Same as load_segment but for loading pages. Used for lazy-loading.
+bool
+load_page (struct file *file, off_t ofs, uint8_t *upage,
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
+{
+  ASSERT ((read_bytes + zero_bytes) == PGSIZE);
+  ASSERT (pg_ofs (upage) == 0);
+  ASSERT (ofs % PGSIZE == 0);
+
+  file_seek (file, ofs);
+  
+  /* Check if virtual page already allocated */
+  struct thread *t = thread_current ();
+  uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+  
+  if (kpage == NULL){
+    
+    /* Get a new page of memory. */
+    kpage = palloc_get_page (PAL_USER);
+    if (kpage == NULL){
+      return false;
+    }
+    
+    /* Add the page to the process's address space. */
+    if (!install_page (upage, kpage, writable)) 
+    {
+      palloc_free_page (kpage);
+      return false; 
+    }        
+  }
+
+  /* Load data into the page. */
+  int file_read_bytes = file_read (file, kpage, read_bytes);
+  if (file_read_bytes != (int) read_bytes)
+    {
+      palloc_free_page (kpage);
+      return false; 
+    }
+  memset (kpage + read_bytes, 0, zero_bytes);
+  
+  return true;
+}
+
 
 bool
 create_stack_page (void **esp, uint32_t pg_num)

@@ -157,22 +157,30 @@ page_fault (struct intr_frame *f)
   if (not_present && user) {
     struct thread *t = thread_current();
     struct spt *spt = &t->spt;
-    struct list *segments = &spt->segments;
+    struct list *pages = &spt->pages;
 
     if (fault_addr >= EXE_BASE && fault_addr <= EXE_BASE + spt->size) {
       struct list_elem *e;
 
-      for (e = list_begin (segments); e != list_end (segments);
+      for (e = list_begin (pages); e != list_end (pages);
            e = list_next (e))
         {
-          struct segment *seg = list_entry (e, struct segment, elem);
+          struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
           
-          if (!seg->loaded && fault_addr >= seg->start_addr && fault_addr <= seg->end_addr) {
+          if (!spt_page->loaded && 
+          fault_addr >= spt_page->start_addr && 
+          fault_addr <= spt_page->start_addr + PGSIZE) {
+
             acquire_filesystem_lock();
-            bool success = load_segment(spt->file, seg->ofs, seg->upage, seg->read_bytes, seg->zero_bytes, seg->writable);
+            // Loads executable page
+            bool success = load_page(spt->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
             release_filesystem_lock();
+
             if (success) {
-              seg->loaded = true;
+
+              // Sets page's loaded status
+              spt_page->loaded = true;
+
               return;
             }
           }

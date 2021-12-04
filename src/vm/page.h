@@ -16,17 +16,16 @@ struct spt {
   uint32_t size;
   // File containing executable
   struct file *file;
-  // struct list segments;
-  struct list segments;
+  // List of executable pages
+  struct list pages;
 };
 
-// Executable segment
-struct segment {
-  // Start and end addresses of segment after it's been loaded to user virtual memory
+// Executable page
+struct spt_page {
+  // Start address of page after it's been loaded to user virtual memory (end address = start_addr + PGSIZE)
   uint32_t start_addr;
-  uint32_t end_addr;
 
-  // Denotes whether segment has already been loaded into user virtual memory
+  // Loading. Pages at segment boundaries are permitted to be loaded twice.
   bool loaded;
 
   // Metadata passed in to load_segment
@@ -43,10 +42,5 @@ struct segment {
   // Elem for adding to hash segments in spt
   struct list_elem elem;
 };
-
-struct spt *create_spt(void);
-
-// unsigned seg_hash_func (const struct hash_elem *e, void *aux);
-// bool seg_less_func (const struct hash_elem *a, const struct hash_elem *b, void *aux);
 
 #endif
