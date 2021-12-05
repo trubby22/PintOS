@@ -10,7 +10,6 @@
 #include "vm/page.h"
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
-#include "userprog/process.h"
 #include "userprog/syscall.h"
 
 /* Number of page faults processed. */
@@ -204,7 +203,6 @@ page_fault (struct intr_frame *f)
   }
 
   // TODO: check if there was an attempt to write to read-only page
-  // TODO: implement lazy-loading of executables
 
   /* To implement virtual memory, delete the rest of the function
     body, and replace it with code that brings in the page to

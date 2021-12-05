@@ -495,7 +495,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->page_count = 1;
   t->page_addr = t;
   list_init(&t->children);
-  list_init(&t->spt.pages);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
