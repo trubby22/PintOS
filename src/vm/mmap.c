@@ -51,8 +51,8 @@ mmap_remove_mapping (mapid_t mapid)
       for (int i = 0; i < mapping->pgcnt; i++) {
         ASSERT(pagedir_get_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i));
         pagedir_clear_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i);
-        return -1;
       }
+      palloc_free_multiple(mapping->kaddr, mapping->pgcnt);
       list_remove(cur_elem);
       free(mapping);
       return true;
