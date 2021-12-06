@@ -3,6 +3,9 @@
 
 #include "threads/thread.h"
 
+// 8 MB
+#define STACK_LIMIT 0x800000
+
 struct arg {
   char *str;
   struct list_elem elem;

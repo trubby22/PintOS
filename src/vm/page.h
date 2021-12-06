@@ -14,24 +14,22 @@
 // Supplemental page table
 struct spt {
   // Size of executable in memory
-  uint32_t size;
-
-  // List of executable pages
-  // struct list exe_pages;
-  // List of pages belonging to memory-mapped files
-  // struct list mmap_pages;
-
+  uint32_t exe_size;
+  uint32_t stack_size;
   // List of all pages used by process (executable, file mappings)
   struct list pages;
   // Lock on struct list pages
   struct lock pages_lock;
 };
 
+// TODO: create an enum that tells us what type of data is in the page: executable, file, stack, or parent's page
 // Executable page
 struct spt_page {
   // Start address of page after it's been loaded to user virtual memory (end address = start_addr + PGSIZE)
   // TODO: remove start_addr because it's a copy of upage
   uint32_t start_addr;
+  // Is true when spt_page stores metadata about a stack page
+  bool stack;
   // Denotes whether page has been loaded
   bool loaded;
   // File to be loaded
@@ -54,5 +52,6 @@ struct spt_page {
 
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
+void spt_add_stack_page (void *upage);
 
 #endif

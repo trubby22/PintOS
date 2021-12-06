@@ -2,7 +2,6 @@
 #define THREADS_PALLOC_H
 
 #include <stddef.h>
-#define STACK_LIMIT 64000000
 
 /* How to allocate pages. */
 enum palloc_flags

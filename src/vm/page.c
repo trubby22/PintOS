@@ -9,7 +9,10 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 
+// TODO: extract parts of load_segment and load_page into this class
+
 // This function must be called after filesystem_lock has been acquired
+// TODO: don't panic here. Instead, return false and handle that in the caller
 void spt_add_mmap_file (int fd, void *upage) {
   struct file *file = get_file_or_null(fd);
   if (file == NULL) {
@@ -60,4 +63,25 @@ bool spt_remove_mmap_file (void *upage) {
 
   lock_release(&spt->pages_lock);
   return success;
+}
+
+// Do I even need to record stack pages in SPT?
+void spt_add_stack_page (void *upage) {
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+
+  // TODO: remember to free spt_page
+  struct spt_page *spt_page = malloc(sizeof(struct spt_page));
+  if (spt_page == NULL) {
+    PANIC ("Could not malloc spt_page in page.c: spt_add_mmap_page");
+  }
+
+  spt_page->upage = upage;
+  spt_page->start_addr = upage;
+  spt_page->stack = true;
+
+  lock_acquire(&spt->pages_lock);
+  list_push_back(pages, &spt_page->elem);
+  lock_release(&spt->pages_lock);
 }

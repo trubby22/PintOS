@@ -200,7 +200,10 @@ page_fault (struct intr_frame *f)
   }
 
   //Check that the user stack pointer appears to be in stack space:
+  // TODO: This is wrong. The esp is most likely undefined. It will be defined only when there's a switch from user mode to kernel mode. We need to store esp somewhere else to keep track of it, e.g. on struct thread.
   void *esp = f->esp;
+
+  ASSERT(esp != NULL);
 
   //Check if it's a stack addr
   if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {

@@ -59,6 +59,7 @@ hash_less_fun_b (const struct hash_elem *a,
   return hash_hash_fun_b(a,NULL) < hash_hash_fun_b(b,NULL);
 }
 
+// TODO: have uniformity when acquireing filesystem_lock, i.e. either always call lock_acquire(&filesystem_lock) (the better option) or acquire_filesystem_lock()
 struct lock filesystem_lock;
 struct lock console_lock;
 

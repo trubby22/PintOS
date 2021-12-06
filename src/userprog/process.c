@@ -399,12 +399,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   // Initializes thread's SPT
   struct spt *spt = &t->spt;
-  // struct list *exe_pages = &spt->exe_pages;
-  // struct list *mmap_pages = &spt->mmap_pages;
   struct list *pages = &spt->pages;
-  spt->size = 0;
-  // list_init(exe_pages);
-  // list_init(mmap_pages);
+  spt->exe_size = 0;
+  spt->stack_size = 0;
   list_init(pages);
   lock_init(&spt->pages_lock);
 
@@ -600,12 +597,13 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->zero_bytes = page_zero_bytes;
         spt_page->writable = writable;
 
+        spt_page->stack = false;
         spt_page->loaded = false;
         spt_page->file = file;
 
         // TODO: remove start_addr because it's a copy of upage
         if (is_executable) {
-          spt_page->start_addr = EXE_BASE + spt->size;
+          spt_page->start_addr = EXE_BASE + spt->exe_size;
         } else {
           spt_page->start_addr = (uint32_t) upage;
         }
@@ -620,7 +618,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       file->pos += page_read_bytes;
 
       /* Advance. */
-      spt->size += PGSIZE;
+      if (is_executable) {
+        spt->exe_size += PGSIZE;
+      }
       ofs += PGSIZE;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
@@ -680,16 +680,27 @@ create_stack_page (void **esp, uint32_t pg_num)
   uint8_t *kpage;
   bool success = false;
 
+  // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
   kpage = palloc_get_page (PAL_USER | PAL_ZERO | PAL_ASSERT);
 
   if (kpage != NULL) 
     {
-      success = install_page (((uint8_t *) PHYS_BASE) - (PGSIZE * pg_num), kpage, true);
+      struct thread *t = thread_current();
+      struct spt *spt = &t->spt;
+
+      void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+
+      success = install_page (upage, kpage, true);
       ASSERT(success);
-      if (success)
-        *esp = (PHYS_BASE - (PGSIZE * (pg_num - 1)));
-      else
+      if (success) {
+        spt_add_stack_page(upage);
+
+        spt->stack_size += PGSIZE;
+
+        *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+      } else {
         palloc_free_page (kpage);
+      }
     }
   return success;
 }
