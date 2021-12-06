@@ -7,15 +7,12 @@
 #include "userprog/process.h"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
+#include "threads/malloc.h"
 
 // This function must be called after filesystem_lock has been acquired
 void spt_add_mmap_file (int fd, void *upage) {
-  struct thread *t = thread_current();
-  struct spt *spt = &t->spt;
-  struct list *pages = &spt->pages;
-
   struct file *file = get_file_or_null(fd);
-  if (fd == NULL) {
+  if (file == NULL) {
     PANIC ("Could not find file for given fd in page.c: spt_add_mmap_page");
   }
 
@@ -27,7 +24,7 @@ void spt_add_mmap_file (int fd, void *upage) {
 
   // Variables passed as arguments to load_segment below
   uint32_t read_bytes = file_length (file);
-  uint32_t zero_bytes = PGSIZE % read_bytes;
+  uint32_t zero_bytes = PGSIZE - (read_bytes % PGSIZE);
   bool writable = !file->deny_write;
   bool is_executable = false;
 
