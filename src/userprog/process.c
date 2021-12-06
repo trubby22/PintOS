@@ -560,11 +560,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   struct thread *t = thread_current ();
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
-  // if (is_executable) {
-  //   pages = &spt->exe_pages;
-  // } else {
-  //   pages = &spt->mmap_pages;
-  // }
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -605,9 +600,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->zero_bytes = page_zero_bytes;
         spt_page->writable = writable;
 
-        spt_page->loaded = !is_executable;
+        spt_page->loaded = false;
         spt_page->file = file;
 
+        // TODO: remove start_addr because it's a copy of upage
         if (is_executable) {
           spt_page->start_addr = EXE_BASE + spt->size;
         } else {

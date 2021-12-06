@@ -426,9 +426,6 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
 
   lock_acquire(&filesystem_lock);
 
-  // Save file's metadata in SPT. Used for lazy-loading.
-  spt_add_mmap_file (fd, addr);
-
   struct file *target_file = get_file_or_null(fd);
 
   // If getting the file fails, exit with -1
@@ -446,42 +443,21 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
     return -1;
   }
 
+  // TODO: don't search for file given fd in spt_add_mmap_file again
+  // Save file's metadata in SPT. Used for lazy-loading.
+  spt_add_mmap_file (fd, addr);
+  lock_release(&filesystem_lock);
+
   // Calculate number of pages needed
   int pgcnt = size / PGSIZE;
   if (size % PGSIZE)
     pgcnt++;
 
-  // Check the virtual space is available
-  for (int i = 0; i < pgcnt; i++) {
-    if (pagedir_get_page(thread_current ()->pagedir, addr + PGSIZE * i)) {
-      lock_release(&filesystem_lock);
-      return -1;
-    }
-  }
-
-  void *pages = palloc_get_multiple(PAL_USER | PAL_ZERO, pgcnt);
-  
-  // Check the palloc worked
-  if (!pages) {
-    lock_release(&filesystem_lock);
-    syscall_exit(-1);
-  }
-
   // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, pages);
+  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, NULL);
 
-  // Make the mapping
-  for (int i = 0; i < pgcnt; i++)
-    install_page(addr + (PGSIZE * i), pages + (PGSIZE * i), 1);
+  // Don't allocate resources for file here because the file will be loaded lazily
 
-  off_t bytes_loaded = file_read(target_file, addr, size);
-
-  if (bytes_loaded != size) {
-    lock_release(&filesystem_lock);
-    return -1;
-  }
-
-  lock_release(&filesystem_lock);
   return 0;
 }
 

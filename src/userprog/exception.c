@@ -113,7 +113,7 @@ kill (struct intr_frame *f)
     }
 }
 
-static bool check_and_load_page (struct spt_page *spt_page, void *fault_addr) {
+static bool check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) {
   if (!spt_page->loaded && 
   fault_addr >= spt_page->start_addr && 
   fault_addr <= spt_page->start_addr + PGSIZE) {
@@ -188,7 +188,7 @@ page_fault (struct intr_frame *f)
     for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
       struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
       
-      bool success = check_and_load_page(spt_page, fault_addr);
+      bool success = check_and_possibly_load_page(spt_page, fault_addr);
 
       if (success) {
         lock_release(&spt->pages_lock);
