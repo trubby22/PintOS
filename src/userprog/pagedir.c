@@ -71,9 +71,7 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          // Original line
-          // pt = palloc_get_page (PAL_ZERO);
-          pt = get_frame(pd, vaddr);
+          pt = palloc_get_page (PAL_ZERO);
           if (pt == NULL) 
             return NULL; 
       

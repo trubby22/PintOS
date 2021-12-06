@@ -2,8 +2,8 @@
 #define VM_FRAME_H
 #include <inttypes.h>
 
-void* get_frame (uint32_t *pd, void *vaddr);
-uint32_t lookup_frame(uint32_t frame_number);
+void* frame_insert (void *kpage, uint32_t *pd, void *vaddr);
+struct frame *lookup_frame(void *vaddr);
 void init_frame_table(void);
 
 #endif

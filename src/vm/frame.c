@@ -31,7 +31,7 @@ static void fix_queue(struct frame* new);
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
   struct frame *f = hash_entry(e, struct frame, elem);
-  return f -> address;
+  return (unsigned) f -> address;
 }
 
 bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
@@ -43,18 +43,17 @@ static struct frametable frame_table;
 
 void init_frame_table(void)
 {
-  struct hash table;
-  frame_table.table = table;
-  hash_init(&table, frame_hash, frame_less, NULL);
+  hash_init(&frame_table.table, frame_hash, frame_less, NULL);
 }
 
 /* Looks up frame with frameid FID in the frame table 
    returns NULL if the frame does not exist */
    //Is this function even needed?
-uint32_t lookup_frame(uint32_t frame_number){
+struct frame *lookup_frame(void *kpage){
   //search table using dummy elem
-  struct hash_elem *dummy_f;
-  struct hash_elem *f = hash_find(&frame_table.table, dummy_f);
+  struct frame *dummy_f;
+  dummy_f -> address = kpage;
+  struct hash_elem *f = hash_find(&frame_table.table, &dummy_f->elem);
   //miss
   if (!f){
     return NULL;
@@ -64,23 +63,22 @@ uint32_t lookup_frame(uint32_t frame_number){
   return frame -> address;
 }
 
+static struct frame *evict (struct frame *head);
 
 /* Returns a new frame. Evicts if needed */
-void* get_frame (uint32_t *pd, void *vaddr){ 
-  struct frame* frame;
-  void *frame_address = palloc_get_page(PAL_USER);
-	if (!frame_address)
+void* frame_insert (void* kpage, uint32_t *pd, void *vaddr){
+  struct frame *frame;
+	if (!kpage)
 	{
-    //Should call frame = evict (frame_table -> head); but will just panic for now
-		PANIC("Ran out of free frames");
+    frame = evict (frame_table.head);
 	} else{
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
-    frame -> address = frame_address;
+    frame -> address = kpage;
     //fix circular queue
     fix_queue(frame);
     //add to frame table
-    //hash_insert(&frame_table.table,&frame->elem);
+    hash_insert(&frame_table.table,&frame->elem);
 	}
   frame -> pd = pd;
   frame -> uaddr = vaddr;

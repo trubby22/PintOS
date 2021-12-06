@@ -63,6 +63,20 @@ palloc_init (size_t user_page_limit)
              user_pages, "user pool");
 }
 
+void *palloc_get_multiple_aux 
+(enum palloc_flags flags, size_t page_cnt, uint32_t *pd, void *vaddr){
+  void* kpage = palloc_get_multiple(flags, page_cnt);
+  if (flags & PAL_USER){
+    frame_insert(kpage, pd, vaddr);
+  }
+  return kpage;
+}
+
+void *palloc_get_page_aux
+(enum palloc_flags flags,uint32_t *pd, void *vaddr){
+  return palloc_get_multiple_aux(flags, 1, pd, vaddr);
+}
+
 /* Obtains and returns a group of PAGE_CNT contiguous free pages.
    If PAL_USER is set, the pages are obtained from the user pool,
    otherwise from the kernel pool.  If PAL_ZERO is set in FLAGS,
