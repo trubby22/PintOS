@@ -3,8 +3,8 @@
 
 #include "threads/thread.h"
 
-// 8 MB
-#define STACK_LIMIT 0x800000
+// 4 MB
+#define STACK_LIMIT 0x400000
 
 struct arg {
   char *str;

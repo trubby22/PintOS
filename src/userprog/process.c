@@ -697,7 +697,7 @@ create_stack_page (void **esp, uint32_t pg_num)
 
         spt->stack_size += PGSIZE;
 
-        *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+        // *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
       } else {
         palloc_free_page (kpage);
       }
