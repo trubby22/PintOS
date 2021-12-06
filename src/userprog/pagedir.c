@@ -67,12 +67,14 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
   /* Check for a page table for VADDR.
      If one is missing, create one if requested. */
   pde = pd + pd_no (vaddr);
-  if (*pde == 0 || !*pde & PTE_ADDR) 
+  if (*pde == 0) 
     {
       if (create)
         {
+          // Original line
+          // pt = palloc_get_page (PAL_ZERO);
           pt = get_frame(pd, vaddr);
-          if (pt == NULL) //get frame should never return null
+          if (pt == NULL) 
             return NULL; 
       
           *pde = pde_create (pt);
@@ -85,6 +87,7 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
   pt = pde_get_pt (*pde);
   return &pt[pt_no (vaddr)];
 }
+
 
 /* Returns the address of the page table entry for virtual
    address VADDR in page directory PD. 

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include "lib/kernel/list.h"
 #include "lib/kernel/hash.h"
+#include "threads/synch.h"
 
 // In the spec it says that it should be: 0x08084000 but from the tests it seems like it's: 0x08048000
 #define EXE_BASE 0x08048000
@@ -14,19 +15,27 @@
 struct spt {
   // Size of executable in memory
   uint32_t size;
-  // File containing executable
-  struct file *file;
+
   // List of executable pages
+  // struct list exe_pages;
+  // List of pages belonging to memory-mapped files
+  // struct list mmap_pages;
+
+  // List of all pages used by process (executable, file mappings)
   struct list pages;
+  // Lock on struct list pages
+  struct lock pages_lock;
 };
 
 // Executable page
 struct spt_page {
   // Start address of page after it's been loaded to user virtual memory (end address = start_addr + PGSIZE)
+  // TODO: remove start_addr because it's a copy of upage
   uint32_t start_addr;
-
-  // Loading. Pages at segment boundaries are permitted to be loaded twice.
+  // Denotes whether page has been loaded
   bool loaded;
+  // File to be loaded
+  struct file *file;
 
   // Metadata passed in to load_segment
   // Offset within executable file
@@ -42,5 +51,8 @@ struct spt_page {
   // Elem for adding to hash segments in spt
   struct list_elem elem;
 };
+
+void spt_add_mmap_file (int fd, void *upage);
+bool spt_remove_mmap_file (void *upage);
 
 #endif

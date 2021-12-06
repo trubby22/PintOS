@@ -113,6 +113,27 @@ kill (struct intr_frame *f)
     }
 }
 
+static bool check_and_load_page (struct spt_page *spt_page, void *fault_addr) {
+  if (!spt_page->loaded && 
+  fault_addr >= spt_page->start_addr && 
+  fault_addr <= spt_page->start_addr + PGSIZE) {
+
+    acquire_filesystem_lock();
+    // Loads missing page from file or executable
+    bool success = load_page(spt_page->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
+    release_filesystem_lock();
+
+    if (success) {
+      // Sets page's loaded status
+      spt_page->loaded = true;
+    }
+    
+    return success;
+  }
+  
+  return false;
+}
+
 /* Page fault handler.  This is a skeleton that must be filled in
    to implement virtual memory.  Some solutions to task 2 may
    also require modifying this code.
@@ -153,38 +174,29 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
+  // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
+  // Checks if fault_addr belongs to executable or memory-mapped file
   if (not_present && user) {
     struct thread *t = thread_current();
     struct spt *spt = &t->spt;
     struct list *pages = &spt->pages;
 
-    if (fault_addr >= EXE_BASE && fault_addr <= EXE_BASE + spt->size) {
-      struct list_elem *e;
+    struct list_elem *e;
 
-      for (e = list_begin (pages); e != list_end (pages);
-           e = list_next (e))
-        {
-          struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
-          
-          if (!spt_page->loaded && 
-          fault_addr >= spt_page->start_addr && 
-          fault_addr <= spt_page->start_addr + PGSIZE) {
+    lock_acquire(&spt->pages_lock);
 
-            acquire_filesystem_lock();
-            // Loads executable page
-            bool success = load_page(spt->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
-            release_filesystem_lock();
+    for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
+      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+      
+      bool success = check_and_load_page(spt_page, fault_addr);
 
-            if (success) {
-
-              // Sets page's loaded status
-              spt_page->loaded = true;
-
-              return;
-            }
-          }
-        }
+      if (success) {
+        lock_release(&spt->pages_lock);
+        return;
+      }
     }
+
+    lock_release(&spt->pages_lock);
   }
 
   //Check that the user stack pointer appears to be in stack space:

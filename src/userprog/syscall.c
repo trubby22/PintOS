@@ -15,6 +15,7 @@
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "vm/mmap.h"
+#include "vm/page.h"
 #include <string.h>
 #include <syscall-nr.h>
 
@@ -424,6 +425,9 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   }
 
   lock_acquire(&filesystem_lock);
+
+  // Save file's metadata in SPT. Used for lazy-loading.
+  spt_add_mmap_file (fd, addr);
 
   struct file *target_file = get_file_or_null(fd);
 

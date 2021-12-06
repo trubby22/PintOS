@@ -4,6 +4,7 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
+#include "vm/page.h"
 #include <stdio.h>
 
 struct list map_list;
@@ -48,6 +49,10 @@ mmap_remove_mapping (mapid_t mapid)
     // printf("Mapping: %u\n", mapping->mapid);
     if (mapping->mapid == mapid)
     {
+
+      // TODO: use spt_removal_success to determine return value of mmap_remove_mapping
+      bool spt_removal_success = spt_remove_mmap_file(mapping->uaddr);
+
       for (int i = 0; i < mapping->pgcnt; i++) {
         ASSERT(pagedir_get_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i));
         pagedir_clear_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i);
