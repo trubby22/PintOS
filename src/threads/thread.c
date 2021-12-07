@@ -14,6 +14,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "vm/page.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -205,6 +206,8 @@ thread_create (const char *name, int priority,
 
   t->info = child;
   list_push_front(&thread_current()->children, &child->elem);
+
+
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -495,6 +498,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->page_count = 1;
   t->page_addr = t;
   list_init(&t->children);
+
+  // Initializes thread's SPT
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+  spt->exe_size = 0;
+  spt->stack_size = 0;
+  list_init(pages);
+  lock_init(&spt->pages_lock);
+
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
@@ -571,7 +583,10 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
+      // TODO: ensure thread's stack is freed on exit
       palloc_free_multiple (prev->page_addr, prev->page_count);
+      // palloc_free_page (prev);
+      // spt_free_all_resources(prev);
     }
 }
 

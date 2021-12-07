@@ -34,6 +34,10 @@ struct spt_page {
   bool loaded;
   // File to be loaded
   struct file *file;
+  // File name. Used for executable pages.
+  char *file_name;
+  // True if spt_page belongs to executable file
+  bool executable;
 
   // Metadata passed in to load_segment
   // Offset within executable file
@@ -53,5 +57,7 @@ struct spt_page {
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
+void spt_free_all_resources (struct thread *t);
+void spt_cpy_pages_to_child (struct spt *spt_parent, struct spt *spt_child, const char *name_parent, const char *name_child);
 
 #endif
