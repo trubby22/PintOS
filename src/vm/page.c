@@ -200,5 +200,62 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 // TODO: method init_spt_page that sets up spt_page with default values
 
 
+// Assuming the address that we get in syscall handler is user address. If it turns out that it's a kernel address, pinning could be done in a simpler manner using frame table directly.
+// Pins frames holding object. Returns true if at least one page has been pinned, false otherwise.
+bool pin_obj (void *uaddr, int size) {
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
 
+  struct list_elem *e;
+  bool success = false;
+
+  lock_acquire(&spt->pages_lock);
+
+  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
+    struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+
+    // Checks if object belongs to spt_page
+    if ((spt_page->upage <= uaddr && uaddr < spt_page->upage + PGSIZE) ||
+    (uaddr < spt_page->upage && spt_page->upage < uaddr + size) ||
+    (spt_page->upage <= uaddr + size && uaddr + size < spt_page->upage + PGSIZE)) {
+      void *kpage = pagedir_get_page(t->pagedir, spt_page->upage);
+      pin_frame(kpage);
+      success = true;
+    }
+
+  }
+
+  lock_release(&spt->pages_lock);
+  return success;
+}
+
+// TODO: reduce code duplication between pin_obj and unpin_obj
+bool unpin_obj (void *uaddr, int size) {
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+
+  struct list_elem *e;
+  bool success = false;
+
+  lock_acquire(&spt->pages_lock);
+
+  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
+    struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+
+    // Checks if object belongs to spt_page
+    if ((spt_page->upage <= uaddr && uaddr < spt_page->upage + PGSIZE) ||
+    (uaddr < spt_page->upage && spt_page->upage < uaddr + size) ||
+    (spt_page->upage <= uaddr + size && uaddr + size < spt_page->upage + PGSIZE)) {
+      void *kpage = pagedir_get_page(t->pagedir, spt_page->upage);
+      unpin_frame(kpage);
+      success = true;
+    }
+
+  }
+
+  lock_release(&spt->pages_lock);
+  return success;
+}
 

@@ -107,3 +107,11 @@ static struct frame *evict (struct frame *head){
 struct frametable *get_frame_table (void) {
   return &frame_table;
 }
+
+void pin_frame (void *address) {
+  // TODO
+}
+
+void unpin_frame (void *address) {
+  // TODO
+}
