@@ -4,8 +4,10 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 #include "vm/page.h"
 #include <stdio.h>
+#include "filesys/file.h"
 
 struct list map_list;
 
@@ -32,32 +34,40 @@ mmap_add_mapping (int fd, int pgcnt, void *uaddr, void *kaddr)
   list_push_back(&map_list, &mapping->map_list_elem);
 
   next_id++;
-  // printf("made mapping with id: %u\n", mapping->mapid);
   return mapping->mapid;
 }
 
 bool
 mmap_remove_mapping (mapid_t mapid)
 {
-  // printf("REMOVING mapping with id: %u\n", mapid);
   struct list_elem *cur_elem = list_front(&map_list);
-  // return -1;
   while (cur_elem)
   {
     struct mapped_file *mapping = list_entry(cur_elem, struct mapped_file, map_list_elem);
     ASSERT(mapping);
-    // printf("Mapping: %u\n", mapping->mapid);
+
     if (mapping->mapid == mapid)
     {
+      acquire_filesystem_lock();
+
+      struct file *file = get_file_or_null(mapping->fd);
+      ASSERT(file);
+      file_seek(file, 0);
+      off_t written = file_write(file, mapping->uaddr, mapping->pgcnt * PGSIZE);
+      file_seek(file, 0);
+      ASSERT(file_length(file) == written);
+
+      release_filesystem_lock();
 
       // TODO: use spt_removal_success to determine return value of mmap_remove_mapping
       bool spt_removal_success = spt_remove_mmap_file(mapping->uaddr);
 
       for (int i = 0; i < mapping->pgcnt; i++) {
-        ASSERT(pagedir_get_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i));
-        pagedir_clear_page(thread_current()->pagedir, mapping->uaddr + PGSIZE * i);
+        uint32_t *pd = thread_current()->pagedir;
+        palloc_free_page(pagedir_get_page(pd, mapping->uaddr + PGSIZE * i));
+        pagedir_clear_page(pd, mapping->uaddr + PGSIZE * i);
       }
-      palloc_free_multiple(mapping->kaddr, mapping->pgcnt);
+    
       list_remove(cur_elem);
       free(mapping);
       return true;

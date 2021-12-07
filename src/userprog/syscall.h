@@ -58,8 +58,6 @@ uint32_t mmap_userprog (void **, void **, void **);
 uint32_t munmap_userprog (void **, void **, void **);
 uint32_t file_size_userprog (void **, void **, void **);
 
-// TODO: mmap, munmap
-
 void acquire_filesystem_lock(void);
 void release_filesystem_lock(void);
 

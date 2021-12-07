@@ -1,8 +1,9 @@
-#include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include "userprog/exception.h"
 #include "userprog/gdt.h"
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -10,7 +11,7 @@
 #include "vm/page.h"
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
-#include "userprog/syscall.h"
+#include "lib/user/syscall.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -88,13 +89,15 @@ kill (struct intr_frame *f)
   switch (f->cs)
     {
     case SEL_UCSEG:
+    {
       /* User's code segment, so it's a user exception, as we
          expected.  Kill the user process.  */
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
       thread_current()->info->exit_status = -1;
-      thread_exit (); 
+      syscall_exit(-1);
+   }
 
     case SEL_KCSEG:
       /* Kernel's code segment, which indicates a kernel bug.
@@ -116,7 +119,8 @@ kill (struct intr_frame *f)
 static bool check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) {
   if (!spt_page->loaded && 
   fault_addr >= spt_page->start_addr && 
-  fault_addr <= spt_page->start_addr + PGSIZE) {
+  fault_addr <= spt_page->start_addr + PGSIZE) 
+  {
 
     acquire_filesystem_lock();
     // Loads missing page from file or executable
@@ -132,6 +136,33 @@ static bool check_and_possibly_load_page (struct spt_page *spt_page, void *fault
   }
   
   return false;
+}
+
+static bool
+attempt_load_pages(void *fault_addr)
+{
+   struct thread *t = thread_current();
+   struct spt *spt = &t->spt;
+   struct list *pages = &spt->pages;
+
+   struct list_elem *e;
+
+   lock_acquire(&spt->pages_lock);
+   ASSERT(pages);
+   ASSERT(list_begin(pages));
+   ASSERT(list_end(pages));
+   for (e = list_begin(pages); e != list_end(pages); e = list_next(e))
+   {
+      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+      ASSERT(spt_page);
+      bool success = check_and_possibly_load_page(spt_page, fault_addr);
+
+      if (success) {
+        lock_release(&spt->pages_lock);
+        return true;
+      }
+    }
+    return false;
 }
 
 /* Page fault handler.  This is a skeleton that must be filled in
@@ -177,43 +208,31 @@ page_fault (struct intr_frame *f)
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
   if (not_present && user) {
-    struct thread *t = thread_current();
-    struct spt *spt = &t->spt;
-    struct list *pages = &spt->pages;
-
-    struct list_elem *e;
-
-    lock_acquire(&spt->pages_lock);
-
-    for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
-      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
-      
-      bool success = check_and_possibly_load_page(spt_page, fault_addr);
-
-      if (success) {
-        lock_release(&spt->pages_lock);
-        return;
+     if (!attempt_load_pages(fault_addr))
+        lock_release(&(thread_current()->spt).pages_lock);
+      else {
+         // PANIC("Loaded %u for thread: %s\n", write, thread_current()->name);
+         return;
       }
-    }
-
-    lock_release(&spt->pages_lock);
   }
 
   //Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
 
-  ASSERT(esp != NULL);
+  ASSERT(esp);
 
   // Check if it's a stack addr
   // Since stack can only grow via PUSH or PUSHA assembly instruction, the fault_addr must be either 4 or 32 bytes below esp.
   if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT && 
-  (fault_addr == esp - 4 || fault_addr == esp - 32)) {
-     uint32_t new_count = thread_current() -> page_count + 1;
-     thread_current() -> page_count = new_count;
+  (fault_addr == esp - 4 || fault_addr == esp - 32)) 
+  {
+     uint32_t new_count = thread_current()->page_count + 1;
+     thread_current()->page_count = new_count;
 
-      //Create new page
-     thread_current()->page_addr -= PGSIZE;
-     if (create_stack_page (&esp, new_count)) {
+     // Create new page
+   //   thread_current()->page_addr -= PGSIZE;
+     if (create_stack_page(&esp, new_count))
+     {
         return;
      }
   }
@@ -230,4 +249,3 @@ page_fault (struct intr_frame *f)
           user ? "user" : "kernel");
   kill (f);
 }
-

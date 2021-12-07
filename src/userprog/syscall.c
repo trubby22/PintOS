@@ -1,5 +1,6 @@
 #include "lib/user/syscall.h"
 #include "lib/stdio.h"
+#include "userprog/filesystemlock.h"
 #include "userprog/syscall.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
@@ -371,7 +372,8 @@ read_userprog (void **arg1, void **arg2, void **arg3)
     lock_release(&filesystem_lock);
     return -1;
   }
-  off_t result = file_read (file, (void *) buffer, size);
+
+  off_t result = file_read (file, buffer, size);
   lock_release(&filesystem_lock);
   return result;
 }
@@ -454,8 +456,10 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (size % PGSIZE)
     pgcnt++;
 
+  void *kaddr = palloc_get_multiple(PAL_ZERO | PAL_USER, pgcnt);
+
   // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, NULL);
+  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, kaddr);
 
   // Don't allocate resources for file here because the file will be loaded lazily
 
