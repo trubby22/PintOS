@@ -189,7 +189,7 @@ start_process (void *data_from_parent)
 
   struct thread *t = thread_current();
 
-  spt_cpy_pages_to_child (parent_spt, &t->spt, parent->name, t->name);
+  spt_cpy_pages_to_child (parent, t);
 
   acquire_filesystem_lock();
   success = load (function_name, &if_.eip, &if_.esp);
@@ -391,6 +391,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
+
+  t->spt.pagedir = t->pagedir;
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -669,7 +671,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
     if (!install_page (upage, kpage, writable)) 
     {
       palloc_free_page (kpage);
-      return false; 
+      return false;
     }        
   }
 

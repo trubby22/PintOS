@@ -20,6 +20,8 @@ struct spt {
   struct list pages;
   // Lock on struct list pages
   struct lock pages_lock;
+  // Pointer to thread's page directory
+  uint32_t *pagedir;
 };
 
 // TODO: create an enum that tells us what type of data is in the page: executable, file, stack, or parent's page
@@ -38,6 +40,8 @@ struct spt_page {
   char *file_name;
   // True if spt_page belongs to executable file
   bool executable;
+  // If child inherits page from parent, frame_number is used to obtain page's kernel address
+  uint32_t frame_number;
 
   // Metadata passed in to load_segment
   // Offset within executable file
@@ -50,14 +54,17 @@ struct spt_page {
   uint32_t zero_bytes;
   // Says whether segment can be written to. If false, segment is read-only.
   bool writable;
+
   // Elem for adding to hash segments in spt
   struct list_elem elem;
+  // Elem for adding spt_page to list of children in parent's frame
+  struct list_elem parent_elem;
 };
 
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
 void spt_free_all_resources (struct thread *t);
-void spt_cpy_pages_to_child (struct spt *spt_parent, struct spt *spt_child, const char *name_parent, const char *name_child);
+void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
 
 #endif

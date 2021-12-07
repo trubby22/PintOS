@@ -8,23 +8,7 @@
 #include "userprog/pagedir.h"
 #include "threads/pte.h"
 
-/* A frame table maps a frame to a user page. */
-struct frametable
-{
-  struct frame *head; //Head of circular queue, needed for eviction
-  struct hash table;  //
-};
-
-struct frame
-{
-  uint32_t frame_number;
-  void* address;           //value
-  uint32_t *pd;            //page directory that owns this frame
-  void* uaddr;             //page that owns this frame
-  bool save;               //If 1 then frame is saved, not needed
-  struct hash_elem elem;   //Elem to be part of frame table
-  struct frame *next;      //Pointer to be part of circular queue for eviction
-};
+static struct frametable frame_table;
 
 static void fix_queue(struct frame* new);
 
@@ -39,8 +23,6 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
   return frame_hash(a,NULL) < frame_hash(b, NULL);
 }
 
-static struct frametable frame_table;
-
 void init_frame_table(void)
 {
   struct hash table;
@@ -51,6 +33,7 @@ void init_frame_table(void)
 /* Looks up frame with frameid FID in the frame table 
    returns NULL if the frame does not exist */
    //Is this function even needed?
+// What's the point of looking up on frame number when we hash on frame address? Frame number is really useful for tracking a frame when it changes its location (RAM, disk, etc.) but I think lookup should be on the same variable that we use in frame_hash
 uint32_t lookup_frame(uint32_t frame_number){
   //search table using dummy elem
   struct hash_elem *dummy_f;
@@ -62,6 +45,24 @@ uint32_t lookup_frame(uint32_t frame_number){
   //hit
   struct frame *frame = hash_entry(f, struct frame, elem);
   return frame -> address;
+}
+
+// Returns pointer to struct frame given frame_number
+struct frame *find_frame (void *address) {
+  //search table using dummy elem
+  struct frame dummy;
+  dummy.address = address;
+
+  struct hash_elem *f = hash_find(&frame_table.table, &dummy.elem);
+
+  //miss
+  if (!f){
+    return NULL;
+  }
+
+  //hit
+  struct frame *frame = hash_entry(f, struct frame, elem);
+  return frame;
 }
 
 
@@ -118,4 +119,8 @@ static struct frame *evict (struct frame *head){
   
 	frame_table.head = head -> next;
 	return head;
+}
+
+struct frametable *get_frame_table (void) {
+  return &frame_table;
 }

@@ -10,6 +10,8 @@
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "lib/string.h"
+#include "userprog/pagedir.h"
+#include "vm/frame.h"
 
 // TODO: extract parts of load_segment and load_page into this class
 
@@ -141,12 +143,15 @@ static struct spt_page *cpy_spt_page (struct spt_page *src) {
 }
 
 // Copies non-stack parent's spt pages to child's spt
-void spt_cpy_pages_to_child (struct spt *spt_parent, struct spt *spt_child, const char *name_parent, const char *name_child) {
+void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
+  struct spt *spt_parent = &parent->spt;
+  struct spt *spt_child = &child->spt;
+
   struct list *parent_pages = &spt_parent->pages;
   struct list *child_pages = &spt_child->pages;
 
   struct list_elem *e;
-  bool same_executable = strcmp(name_parent, name_child) == 0;
+  bool same_executable = strcmp(parent->name, child->name) == 0;
 
   lock_acquire(&spt_parent->pages_lock);
 
@@ -154,7 +159,7 @@ void spt_cpy_pages_to_child (struct spt *spt_parent, struct spt *spt_child, cons
     struct spt_page *parent_spt_page = list_entry (e, struct spt_page, elem);
 
     // Stack pages are not shared
-
+    
     if (parent_spt_page->stack ||
     !same_executable && parent_spt_page->executable) {
       continue;
@@ -165,6 +170,27 @@ void spt_cpy_pages_to_child (struct spt *spt_parent, struct spt *spt_child, cons
     lock_acquire(&spt_child->pages_lock);
     list_push_back(&child_pages, child_spt_page);
     lock_release(&spt_child->pages_lock);
+
+    // TODO: avoid race conditions here (esp. when adding stuff to parent_frame)
+    // Add mapping from page to kernel address
+
+    struct frametable *frame_table = get_frame_table();
+
+    // Need to use a lock here to ensure frame's address doesn't change between call to pagedir_get_page and find_frame
+    lock_acquire(&frame_table->lock);
+
+    void *kpage = pagedir_get_page(parent->pagedir, child_spt_page->upage);
+    install_page(child_spt_page->upage, kpage, child_spt_page->writable);
+    struct frame *parent_frame = find_frame (kpage);
+
+    lock_release(&frame_table->lock);
+
+    // Need to have a lock here because a list is used and it may be used by many children of the same parent at once.
+    lock_acquire(&parent_frame->children_lock);
+
+    list_push_back(&parent_frame->children, &child_spt_page->parent_elem);
+
+    lock_release(&parent_frame->children_lock);
   }
 
   lock_release(&spt_parent->pages_lock);
