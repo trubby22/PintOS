@@ -662,7 +662,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
   if (kpage == NULL){
     
     /* Get a new page of memory. */
-    kpage = palloc_get_page (PAL_USER);
+    kpage = palloc_get_page_aux (PAL_USER, t -> pagedir, upage);
     if (kpage == NULL){
       return false;
     }
@@ -693,29 +693,19 @@ create_stack_page (void **esp, uint32_t pg_num)
 {
   uint8_t *kpage;
   bool success = false;
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
 
   // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO | PAL_ASSERT);
-
-  if (kpage != NULL) 
-    {
-      struct thread *t = thread_current();
-      struct spt *spt = &t->spt;
-
-      void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
-
-      success = install_page (upage, kpage, true);
-      ASSERT(success);
-      if (success) {
-        spt_add_stack_page(upage);
-
-        spt->stack_size += PGSIZE;
-
-        // *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
-      } else {
-        palloc_free_page (kpage);
-      }
-    }
+  kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO | PAL_ASSERT, t -> pagedir, upage);
+  success = install_page (upage, kpage, true);
+  ASSERT(success);
+  if (success) {
+    spt_add_stack_page(upage);
+    spt->stack_size += PGSIZE;
+    *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+  }
   return success;
 }
 

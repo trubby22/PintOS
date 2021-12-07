@@ -177,12 +177,12 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 
     struct frametable *frame_table = get_frame_table();
 
-    // Need to use a lock here to ensure frame's address doesn't change between call to pagedir_get_page and find_frame
+    // Need to use a lock here to ensure frame's address doesn't change between call to pagedir_get_page and lookup_frame
     lock_acquire(&frame_table->lock);
 
     void *kpage = pagedir_get_page(parent->pagedir, child_spt_page->upage);
     install_page(child_spt_page->upage, kpage, child_spt_page->writable);
-    struct frame *parent_frame = find_frame (kpage);
+    struct frame *parent_frame = lookup_frame(kpage);
 
     lock_release(&frame_table->lock);
 

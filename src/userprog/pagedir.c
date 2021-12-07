@@ -71,9 +71,7 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
     {
       if (create)
         {
-          // Original line
-          // pt = palloc_get_page (PAL_ZERO);
-          pt = get_frame(pd, vaddr);
+          pt = palloc_get_page (PAL_ZERO);
           if (pt == NULL) 
             return NULL; 
       
@@ -143,6 +141,12 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   
   pte = lookup_page (pd, uaddr, false);
   if (pte != NULL && (*pte & PTE_P) != 0){
+    if (*pte & PTE_ADDR == 0)
+    {
+      //Page is in table but has no frame!
+
+    }
+    
     return pte_get_page (*pte) + pg_ofs (uaddr); 
   }
   else

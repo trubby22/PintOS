@@ -25,8 +25,8 @@ struct frame
 
   uint32_t *pd;            // page directory of the process that owns this frame
   void* uaddr;             // corresponding page of the proces that owns this frame
+  int size;                //if added through frame multiple
 
-  bool save;               //If 1 then frame is saved, not needed
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
 
@@ -39,8 +39,9 @@ struct frame
   struct lock lock;
 };
 
+void* frame_insert (void *kpage, uint32_t *pd, void *vaddr, int size);
+struct frame *lookup_frame(void *kpage);
 void init_frame_table(void);
-uint32_t lookup_frame(uint32_t frame_number);
 struct frame *find_frame (void *address);
 void *get_frame (uint32_t *pd, void *vaddr);
 

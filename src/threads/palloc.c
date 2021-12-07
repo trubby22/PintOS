@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "vm/frame.h"
 #include "threads/loader.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
@@ -61,6 +62,20 @@ palloc_init (size_t user_page_limit)
   init_pool (&kernel_pool, free_start, kernel_pages, "kernel pool");
   init_pool (&user_pool, free_start + kernel_pages * PGSIZE,
              user_pages, "user pool");
+}
+
+void *palloc_get_multiple_aux 
+(enum palloc_flags flags, size_t page_cnt, uint32_t *pd, void *vaddr){
+  void* kpage = palloc_get_multiple(flags, page_cnt);
+  if (flags & PAL_USER){
+    frame_insert(kpage, pd, vaddr, page_cnt);
+  }
+  return kpage;
+}
+
+void *palloc_get_page_aux
+(enum palloc_flags flags,uint32_t *pd, void *vaddr){
+  return palloc_get_multiple_aux(flags, 1, pd, vaddr);
 }
 
 /* Obtains and returns a group of PAGE_CNT contiguous free pages.
