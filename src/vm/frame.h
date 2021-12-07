@@ -22,8 +22,10 @@ struct frame
 
   uint32_t frame_number;
   void* address;           //value
-  uint32_t *pd;            //page directory that owns this frame
-  void* uaddr;             //page that owns this frame
+
+  uint32_t *pd;            // page directory of the process that owns this frame
+  void* uaddr;             // corresponding page of the proces that owns this frame
+
   bool save;               //If 1 then frame is saved, not needed
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction

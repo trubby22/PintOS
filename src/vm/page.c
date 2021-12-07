@@ -32,7 +32,8 @@ void spt_add_mmap_file (int fd, void *upage) {
   // Variables passed as arguments to load_segment below
   uint32_t read_bytes = file_length (file);
   uint32_t zero_bytes = PGSIZE - (read_bytes % PGSIZE);
-  bool writable = !file->deny_write;
+  // It is assumed all mapped file pages are writable.
+  bool writable = true;
   bool is_executable = false;
 
   // Add metadata for each of the file's pages to spt
