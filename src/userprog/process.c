@@ -20,6 +20,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "vm/page.h"
 #include <bitmap.h>
 
 // TODO: change this file to implement our frame table
@@ -118,9 +119,15 @@ process_execute (const char *cmd_args)
 
   release_filesystem_lock();
 
+  struct thread *t = thread_current();
+
+  struct data_from_parent data_from_parent;
+  data_from_parent.args_list = &args_list;
+  data_from_parent.parent = t;
+
   // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, &args_list);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, &data_from_parent);
 
   struct list_elem *e_2 = list_front(&thread_current()->children);
   struct child *child = list_entry (e_2, struct child, elem);
@@ -141,8 +148,13 @@ process_execute (const char *cmd_args)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *args_list)
+start_process (void *data_from_parent)
 {
+  struct data_from_parent *data = (struct data_from_parent *) data_from_parent;
+  struct list *args_list = data->args_list;
+  struct thread *parent = data->parent;
+  struct spt *parent_spt = &parent->spt;
+
   // Initisalise new process_hash_item
   // Has to be done once thread has started running
   struct process_hash_item *p = (struct process_hash_item *)malloc(sizeof(struct process_hash_item));
@@ -170,15 +182,19 @@ start_process (void *args_list)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
+  // TODO: Could do this simpler by just reading off thread_current()->name
   struct list_elem *e = list_front(args_list);
   struct arg *arg = list_entry (e, struct arg, elem);
   const char *function_name = (const char *) arg->str;
+
+  struct thread *t = thread_current();
+
+  spt_cpy_pages_to_child (parent, t);
 
   acquire_filesystem_lock();
   success = load (function_name, &if_.eip, &if_.esp);
   release_filesystem_lock();
 
-  struct thread *t = thread_current();
   t->info->load_success = success;
   // Upping the sema on the line below gives control back to the parent
   sema_up(&t->info->sema);
@@ -376,6 +392,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  t->spt.pagedir = t->pagedir;
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -397,13 +415,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
   
-  // Initializes thread's SPT
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
-  spt->exe_size = 0;
-  spt->stack_size = 0;
-  list_init(pages);
-  lock_init(&spt->pages_lock);
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
@@ -600,6 +613,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->stack = false;
         spt_page->loaded = false;
         spt_page->file = file;
+        spt_page->executable = is_executable;
 
         // TODO: remove start_addr because it's a copy of upage
         if (is_executable) {
@@ -657,7 +671,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
     if (!install_page (upage, kpage, writable)) 
     {
       palloc_free_page (kpage);
-      return false; 
+      return false;
     }        
   }
 

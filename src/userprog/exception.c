@@ -223,6 +223,7 @@ page_fault (struct intr_frame *f)
 
   // Check if it's a stack addr
   // Since stack can only grow via PUSH or PUSHA assembly instruction, the fault_addr must be either 4 or 32 bytes below esp.
+  // if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
   if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT && 
   (fault_addr == esp - 4 || fault_addr == esp - 32)) 
   {

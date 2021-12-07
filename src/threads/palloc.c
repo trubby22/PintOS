@@ -68,7 +68,7 @@ void *palloc_get_multiple_aux
 (enum palloc_flags flags, size_t page_cnt, uint32_t *pd, void *vaddr){
   void* kpage = palloc_get_multiple(flags, page_cnt);
   if (flags & PAL_USER){
-    frame_insert(kpage, pd, vaddr);
+    frame_insert(kpage, pd, vaddr, page_cnt);
   }
   return kpage;
 }
