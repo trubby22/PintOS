@@ -15,17 +15,6 @@ struct frametable
   struct hash table;  //
 };
 
-struct frame
-{
-  uint32_t frame_number;
-  void* address;           //value
-  uint32_t *pd;            //page directory that owns this frame
-  void* uaddr;             //page that owns this frame
-  int size;                //if added through frame multiple
-  struct hash_elem elem;   //Elem to be part of frame table
-  struct frame *next;      //Pointer to be part of circular queue for eviction
-};
-
 static void fix_queue(struct frame* new);
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
@@ -60,7 +49,7 @@ struct frame *lookup_frame(void *kpage){
   }
   //hit
   struct frame *frame = hash_entry(f, struct frame, elem);
-  return frame -> address;
+  return frame;
 }
 
 static struct frame *evict (struct frame *head);
