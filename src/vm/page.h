@@ -25,9 +25,6 @@ struct spt {
 // TODO: create an enum that tells us what type of data is in the page: executable, file, stack, or parent's page
 // Executable page
 struct spt_page {
-  // Start address of page after it's been loaded to user virtual memory (end address = start_addr + PGSIZE)
-  // TODO: remove start_addr because it's a copy of upage
-  uint32_t start_addr;
   // Is true when spt_page stores metadata about a stack page
   bool stack;
   // Denotes whether page has been loaded
@@ -44,7 +41,7 @@ struct spt_page {
   // Metadata passed in to load_segment
   // Offset within executable file
   off_t ofs;
-  // Address at which the segment is to be saved
+  // Page's virtual memory address
   uint8_t *upage;
   // Number of bytes to fill with data
   uint32_t read_bytes;

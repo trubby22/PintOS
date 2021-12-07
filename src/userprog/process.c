@@ -615,13 +615,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
         spt_page->thread = thread_current();
 
-        // TODO: remove start_addr because it's a copy of upage
-        if (is_executable) {
-          spt_page->start_addr = EXE_BASE + spt->exe_size;
-        } else {
-          spt_page->start_addr = (uint32_t) upage;
-        }
-
         lock_acquire(&spt->pages_lock);
         // Adds spt_page to pages list in spt
         list_push_back(pages, &spt_page->elem);

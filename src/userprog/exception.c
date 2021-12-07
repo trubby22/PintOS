@@ -118,8 +118,8 @@ kill (struct intr_frame *f)
 
 static bool check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) {
   if (!spt_page->loaded && 
-  fault_addr >= spt_page->start_addr && 
-  fault_addr <= spt_page->start_addr + PGSIZE) 
+  fault_addr >= spt_page->upage && 
+  fault_addr <= spt_page->upage + PGSIZE) 
   {
 
     acquire_filesystem_lock();

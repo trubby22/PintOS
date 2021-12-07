@@ -83,7 +83,6 @@ void spt_add_stack_page (void *upage) {
   }
 
   spt_page->upage = upage;
-  spt_page->start_addr = upage;
   spt_page->stack = true;
   spt_page->executable = false;
   spt_page->thread = thread_current();
@@ -101,7 +100,6 @@ static struct spt_page *cpy_spt_page (struct spt_page *src) {
     PANIC ("Could not malloc spt_page in page.c: cpy_spt_page");
   }
 
-  dest->start_addr = src->start_addr;
   dest->stack = src->stack;
   dest->loaded = src->loaded;
   dest->file = src->file;
