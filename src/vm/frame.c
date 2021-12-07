@@ -26,6 +26,7 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
 void init_frame_table(void)
 {
   hash_init(&frame_table.table, frame_hash, frame_less, NULL);
+  lock_init(&frame_table.lock);
 }
 
 /* Looks up frame with kpage in the frame table 
@@ -61,6 +62,8 @@ void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
     ASSERT(frame);
     frame -> address = kpage;
     list_init(&frame -> children);
+    lock_init(&frame->lock);
+    lock_init(&frame->children_lock);
 
     //fix circular queue
     fix_queue(frame);
@@ -84,7 +87,6 @@ static void fix_queue(struct frame* new){
 	head -> next = new;
 	frame_table.head = new -> next;
 }
-
 
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
