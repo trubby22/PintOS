@@ -67,4 +67,7 @@ void spt_add_stack_page (void *upage);
 void spt_free_all_resources (struct thread *t);
 void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
 
+bool pin_obj (void *uaddr, int size);
+bool unpin_obj (void *uaddr, int size);
+
 #endif
