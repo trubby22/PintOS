@@ -86,38 +86,10 @@ void spt_add_stack_page (void *upage) {
   spt_page->start_addr = upage;
   spt_page->stack = true;
   spt_page->executable = false;
+  spt_page->thread = thread_current();
 
   lock_acquire(&spt->pages_lock);
   list_push_back(pages, &spt_page->elem);
-  lock_release(&spt->pages_lock);
-}
-
-// Frees all resources belonging to thread (stack, executable, memory-mapped files)
-// TODO: make this function communicate with frame table
-// I need to make sure that the page where struct thread lives gets freed at the very end
-// Assuming stack has at least one page
-void spt_free_all_resources (struct thread *t) {
-  struct spt *spt = &t->spt;
-  struct list *pages = &spt->pages;
-
-  lock_acquire(&spt->pages_lock);
-
-  while (!list_empty (pages)) {
-    struct list_elem *e = list_pop_front (pages);
-    struct spt_page *spt_page = list_entry(e, struct spt_page, elem);
-
-    if (spt_page->start_addr == PHYS_BASE - PGSIZE) {
-      continue;
-    }
-
-    palloc_free_page(spt_page->start_addr);
-    list_remove(e);
-  }
-
-  struct spt_page *initial_stack_page = list_head(pages);
-  palloc_free_page(initial_stack_page->start_addr);
-  list_remove(&initial_stack_page->elem);
-  
   lock_release(&spt->pages_lock);
 }
 
@@ -167,6 +139,7 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
     }
 
     struct spt_page *child_spt_page = cpy_spt_page(parent_spt_page);
+    child_spt_page->thread = child;
 
     lock_acquire(&spt_child->pages_lock);
     list_push_back(&child_pages, child_spt_page);
@@ -199,6 +172,79 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 
 // TODO: method init_spt_page that sets up spt_page with default values
 
+// Frees all resources belonging to thread (stack, executable, memory-mapped files)
+// TODO: make this function communicate with frame table
+// TODO: ensure I've locked everything properly
+// I need to make sure that the page where struct thread lives gets freed at the very end
+// Assuming stack has at least one page
+void spt_free_non_shared_pages (struct thread *t) {
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
 
+  // TODO: we don't want to free pages which contain spt or pagedir because that would be pulling the rug from under ourselves
+  uint32_t spt_start_addr = (uint32_t) spt;
+  uint32_t spt_end_addr = spt_start_addr + sizeof(struct spt);
+
+  uint32_t pd_addr = t->pagedir;
+
+  struct frametable *frame_table = get_frame_table();
+
+  lock_acquire(&spt->pages_lock);
+
+  struct list_elem *e;
+
+  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
+      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+      uint8_t *upage = spt_page->upage;
+
+      lock_acquire(&frame_table->lock);
+
+      void *kpage = pagedir_get_page(t->pagedir, upage);
+      struct frame *frame = lookup_frame(kpage);
+
+      struct list *children = &frame->children;
+
+      int size = list_size(children);
+
+      if (size == 0) {
+        // Non-shared frame; remove from frame table and free
+        struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
+
+        ASSERT (removed_elem != NULL);
+
+        uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
+
+        palloc_free_page (kpage);
+      } else {
+        // Shared frame; don't remove and don't free
+
+        ASSERT (!list_empty(&frame->children));
+
+        // Assuming each thread has its page directory at a different address
+        if (t->pagedir == frame->pd) {
+          // Assign new owner, i.e. update pd and uaddr
+
+          struct list_elem *removed_elem = list_pop_front(&frame->children);
+
+          struct spt_page *spt_page = list_entry(removed_elem, struct spt_page, parent_elem);
+
+          frame->pd = spt_page->thread->pagedir;
+          frame->uaddr = spt_page->upage;
+
+        } else {
+          // Remove reference to dying thread from list children
+
+          struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
+
+          ASSERT (removed_elem != NULL);
+
+        }
+      }
+
+      lock_release(&frame_table->lock);
+    }
+  
+  lock_release(&spt->pages_lock);
+}
 
 

@@ -392,8 +392,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  t->spt.pagedir = t->pagedir;
-
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -614,6 +612,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->loaded = false;
         spt_page->file = file;
         spt_page->executable = is_executable;
+
+        spt_page->thread = thread_current();
 
         // TODO: remove start_addr because it's a copy of upage
         if (is_executable) {

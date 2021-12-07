@@ -60,6 +60,8 @@ void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = kpage;
+    list_init(&frame -> children);
+
     //fix circular queue
     fix_queue(frame);
     //add to frame table
