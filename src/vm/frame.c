@@ -1,9 +1,9 @@
 #include "vm/frame.h"
 #include <stdbool.h>
 #include <hash.h>
-#include "threads/palloc.h"
 #include <debug.h>
 #include <inttypes.h>
+#include "threads/palloc.h"
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
 #include "threads/pte.h"
@@ -21,7 +21,7 @@ struct frame
   void* address;           //value
   uint32_t *pd;            //page directory that owns this frame
   void* uaddr;             //page that owns this frame
-  bool save;               //If 1 then frame is saved, not needed
+  int size;                //if added through frame multiple
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
 };
@@ -46,7 +46,7 @@ void init_frame_table(void)
   hash_init(&frame_table.table, frame_hash, frame_less, NULL);
 }
 
-/* Looks up frame with frameid FID in the frame table 
+/* Looks up frame with kpage in the frame table 
    returns NULL if the frame does not exist */
    //Is this function even needed?
 struct frame *lookup_frame(void *kpage){
@@ -66,11 +66,14 @@ struct frame *lookup_frame(void *kpage){
 static struct frame *evict (struct frame *head);
 
 /* Returns a new frame. Evicts if needed */
-void* frame_insert (void* kpage, uint32_t *pd, void *vaddr){
+void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
   struct frame *frame;
 	if (!kpage)
 	{
     frame = evict (frame_table.head);
+    //free the page in case the size is different
+    palloc_free_multiple(frame -> address, frame -> size);
+    frame -> address = palloc_get_multiple(PAL_USER | PAL_ZERO, size);
 	} else{
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
@@ -80,6 +83,7 @@ void* frame_insert (void* kpage, uint32_t *pd, void *vaddr){
     //add to frame table
     hash_insert(&frame_table.table,&frame->elem);
 	}
+  frame -> size = size;
   frame -> pd = pd;
   frame -> uaddr = vaddr;
 	return frame -> address;
