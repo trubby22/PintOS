@@ -69,4 +69,7 @@ void spt_free_non_shared_pages (struct thread *t);
 void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
 void spt_free_non_shared_pages (struct thread *t);
 
+bool pin_obj (void *uaddr, int size);
+bool unpin_obj (void *uaddr, int size);
+
 #endif

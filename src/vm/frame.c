@@ -111,3 +111,12 @@ static struct frame *evict (struct frame *head){
 struct frametable *get_frame_table (void) {
   return &frame_table;
 }
+
+void pin_frame (void *address) {
+  // TODO
+  // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
+}
+
+void unpin_frame (void *address) {
+  // TODO
+}
