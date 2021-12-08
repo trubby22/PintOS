@@ -39,10 +39,11 @@ struct frame *
 lookup_frame(void *kpage)
 {
   //search table using dummy elem
-  struct frame *dummy_f;
-  dummy_f->address = kpage;
-  struct hash_elem *f = hash_find(&frame_table.table, &dummy_f->elem);
-  //miss
+  struct frame dummy_f;
+  dummy_f.address = kpage;
+  struct hash_elem *f = hash_find(&frame_table.table, &dummy_f.elem);
+
+  // miss
   if (!f){
     return NULL;
   }
@@ -134,11 +135,8 @@ struct frametable *get_frame_table (void) {
 void pin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
   if (!frame)
-  {
-    PANIC("LLL");
-  }
-  
-  frame -> pinned = true;
+    PANIC("Kill");
+  frame->pinned = true;
 }
 
 void unpin_frame (void *address) {
