@@ -14,6 +14,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/flags.h"
+#include "vm/frame.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
@@ -582,7 +583,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       lock_acquire(&spt->pages_lock);
       bool pages_is_empty = list_empty(pages);
       if (!pages_is_empty) {
-        prev = list_back(pages);
+        prev = list_entry(list_back(pages), struct spt_page, elem);
       }
       lock_release(&spt->pages_lock);
 
@@ -681,6 +682,8 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
 bool
 create_stack_page (void **esp, uint32_t pg_num)
 {
+  // lock_acquire(get_frame_table->lock);
+  // enum intr_level old_level = intr_disable ();
   uint8_t *kpage;
   bool success = false;
   struct thread *t = thread_current();
@@ -689,13 +692,21 @@ create_stack_page (void **esp, uint32_t pg_num)
 
   // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
   kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO | PAL_ASSERT, t -> pagedir, upage);
+  if(kpage == NULL) {
+    return false;
+  }
   success = install_page (upage, kpage, true);
-  ASSERT(success);
+  
   if (success) {
     spt_add_stack_page(upage);
     spt->stack_size += PGSIZE;
-    *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+    *esp = (void *) PHYS_BASE - spt->stack_size;
   }
+  else
+  {
+    palloc_free_page (kpage);
+  }
+
   return success;
 }
 
