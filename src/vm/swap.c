@@ -3,6 +3,8 @@
 #include <hash.h>
 #include <bitmap.h>
 #include "vm/frame.h"
+#include "threads/malloc.h"
+#include <stdbool.h>
 
 /*
 Provides sector-based read and write access to block device. You will use this
@@ -43,9 +45,12 @@ bool add_swap_slot(struct frame* frame){
   {
     return false; //or panic
   } else{
-    //need to loop to do the whole frame!
+    struct swap_slot *swap_slot = malloc(sizeof(swap_slot));
     for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) 
       block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
+    swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
+    swap_slot -> pd = frame -> pd;
+    swap_slot -> vaddr = frame -> uaddr;
   }
   return true;
 }
@@ -57,9 +62,13 @@ bool read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
   dummy_s -> vaddr = vadrr;
   struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s->elem);
   struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
-  bitmap_set_multiple(&swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
+  bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
+  for (int i = 0; i < swap_slot -> size; i++){
+    block_write(swap_table.swap_block, swap_slot -> sector + i, kpage + (i* BLOCK_SECTOR_SIZE));
+  }
   block_write(swap_table.swap_block, swap_slot -> sector, kpage);
   hash_delete(&swap_table.table, &swap_slot -> elem);
+  free(swap_slot);
   return true;
 }
 

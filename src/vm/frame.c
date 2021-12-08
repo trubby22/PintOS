@@ -7,6 +7,7 @@
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
 #include "threads/pte.h"
+#include "vm/swap.h"
 
 static struct frametable frame_table;
 
@@ -31,7 +32,6 @@ void init_frame_table(void)
 
 /* Looks up frame with kpage in the frame table 
    returns NULL if the frame does not exist */
-   //Is this function even needed?
 struct frame *lookup_frame(void *kpage){
   //search table using dummy elem
   struct frame *dummy_f;
@@ -80,6 +80,7 @@ static void fix_queue(struct frame* new){
   if (!frame_table.head)
   {
     frame_table.head = new;
+    new -> next = new;
     return;
   }
 	struct frame *head = frame_table.head;
@@ -99,6 +100,12 @@ static struct frame *evict (struct frame *head){
     return evict(head->next);
   }
 	//Allocate swap slot for page panic if none left
+  bool success = add_swap_slot(head);
+  if (!success)
+  {
+    PANIC("at the distro");
+  }
+
  
   //Removes the refernce to this frame in the page table entry
   uint32_t *pte = get_pte(pd, uaddr);
