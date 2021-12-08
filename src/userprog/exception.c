@@ -211,9 +211,11 @@ page_fault (struct intr_frame *f)
 
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
+
   if (not_present && user)
   {
-     if (!attempt_load_pages(fault_addr)) 
+     bool s = attempt_load_pages(fault_addr);
+     if (!s) 
      {
         lock_release(&(thread_current()->spt).pages_lock);
      }
@@ -228,9 +230,8 @@ page_fault (struct intr_frame *f)
 
   // Check if it's a stack addr
   // Since stack can only grow via PUSH or PUSHA assembly instruction, the fault_addr must be either 4 or 32 bytes below esp.
-  // if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT) {
-  if(is_user_vaddr(esp) && esp > PHYS_BASE - STACK_LIMIT && 
-  (fault_addr == esp - 4 || fault_addr == esp - 32)) 
+  if(is_user_vaddr(esp) && esp >= PHYS_BASE - STACK_LIMIT && 
+  (fault_addr == esp || fault_addr == esp - 4 || fault_addr == esp - 28 || fault_addr == esp - 32)) 
   {
      uint32_t new_count = thread_current()->page_count + 1;
      thread_current()->page_count = new_count;
@@ -244,7 +245,6 @@ page_fault (struct intr_frame *f)
   }
 
   // TODO: check if there was an attempt to write to read-only page
-
   /* To implement virtual memory, delete the rest of the function
     body, and replace it with code that brings in the page to
     which fault_addr refers. */

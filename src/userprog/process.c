@@ -675,7 +675,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
       palloc_free_page (kpage);
       return false; 
     }
-  
+    
   return true;
 }
 
