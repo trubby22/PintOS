@@ -583,9 +583,10 @@ thread_schedule_tail (struct thread *prev)
     {
       ASSERT (prev != cur);
       // TODO: ensure thread's stack is freed on exit
-      palloc_free_multiple (prev, prev->page_count);
-      // palloc_free_page (prev);
-      // spt_free_all_resources(prev);
+      // palloc_free_multiple (prev, prev->page_count);
+      // palloc_free_page (prev); 
+
+      // free_process_resources(prev);
     }
 }
 

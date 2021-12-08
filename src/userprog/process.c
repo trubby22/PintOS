@@ -367,7 +367,7 @@ static bool setup_stack (void **esp);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
-                          bool writable, bool is_executable);
+                          bool writable, enum data_type type);
 bool load_page (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
@@ -391,8 +391,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
-  t->spt.pagedir = t->pagedir;
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -468,10 +466,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
 
-              bool is_executable = true;
-
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable, is_executable))
+                                 read_bytes, zero_bytes, writable, EXECUTABLE))
                 goto done;
             }
           else
@@ -561,7 +557,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
   // If is_executable = true, save data for executable, otherwise for a memory-mapped file
 bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-              uint32_t read_bytes, uint32_t zero_bytes, bool writable, bool is_executable) 
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum data_type type) 
 {
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
@@ -610,17 +606,11 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->zero_bytes = page_zero_bytes;
         spt_page->writable = writable;
 
-        spt_page->stack = false;
+        spt_page->type = type;
         spt_page->loaded = false;
         spt_page->file = file;
-        spt_page->executable = is_executable;
 
-        // TODO: remove start_addr because it's a copy of upage
-        if (is_executable) {
-          spt_page->start_addr = EXE_BASE + spt->exe_size;
-        } else {
-          spt_page->start_addr = (uint32_t) upage;
-        }
+        spt_page->thread = thread_current();
 
         lock_acquire(&spt->pages_lock);
         // Adds spt_page to pages list in spt
@@ -632,7 +622,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       file->pos += page_read_bytes;
 
       /* Advance. */
-      if (is_executable) {
+      if (type == EXECUTABLE) {
         spt->exe_size += PGSIZE;
       }
       ofs += PGSIZE;

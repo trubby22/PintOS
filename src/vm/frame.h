@@ -35,8 +35,14 @@ struct frame
   // Lock on list children
   struct lock children_lock;
 
+  // Number of pages with mapping to this frame
+  int users;
+
   // Lock on the whole struct frame. Idk yet whether we need it.
   struct lock lock;
+
+  // Used for "pinning" frame in RAM so it cannot be evicted when a syscall happens. Relates to accessing user memory.
+  bool pinned;
 };
 
 void* frame_insert (void *kpage, uint32_t *pd, void *vaddr, int size);
@@ -46,5 +52,8 @@ struct frame *find_frame (void *address);
 void *get_frame (uint32_t *pd, void *vaddr);
 
 struct frametable *get_frame_table (void);
+
+void pin_frame (void *address);
+void unpin_frame (void *address);
 
 #endif

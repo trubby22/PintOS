@@ -29,6 +29,7 @@ void
 init_frame_table(void)
 {
   hash_init(&frame_table.table, frame_hash, frame_less, NULL);
+  lock_init(&frame_table.lock);
 }
 
 /* Looks up frame with kpage in the frame table 
@@ -68,16 +69,22 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   {
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
-    frame->address = kpage;
-    // fix circular queue
+    frame -> address = kpage;
+    
+    //fix circular queue
     fix_queue(frame);
-    // add to frame table
-    hash_insert(&frame_table.table, &frame->elem);
-  }
-  frame->size = size;
-  frame->pd = pd;
-  frame->uaddr = vaddr;
-  return frame->address;
+    //add to frame table
+    hash_insert(&frame_table.table,&frame->elem);
+	}
+
+  list_init(&frame -> children);
+  lock_init(&frame->lock);
+  lock_init(&frame->children_lock);
+  frame -> users = 1;
+  frame -> size = size;
+  frame -> pd = pd;
+  frame -> uaddr = vaddr;
+	return frame -> address;
 }
 
 static void 
@@ -93,7 +100,6 @@ fix_queue(struct frame* new)
   head->next = new;
   frame_table.head = new->next;
 }
-
 
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
@@ -117,4 +123,13 @@ static struct frame *evict (struct frame *head){
 
 struct frametable *get_frame_table (void) {
   return &frame_table;
+}
+
+void pin_frame (void *address) {
+  // TODO
+  // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
+}
+
+void unpin_frame (void *address) {
+  // TODO
 }
