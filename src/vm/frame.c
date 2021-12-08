@@ -61,15 +61,17 @@ void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = kpage;
-    list_init(&frame -> children);
-    lock_init(&frame->lock);
-    lock_init(&frame->children_lock);
-
+    
     //fix circular queue
     fix_queue(frame);
     //add to frame table
     hash_insert(&frame_table.table,&frame->elem);
 	}
+
+  list_init(&frame -> children);
+  lock_init(&frame->lock);
+  lock_init(&frame->children_lock);
+  frame -> users = 1;
   frame -> size = size;
   frame -> pd = pd;
   frame -> uaddr = vaddr;

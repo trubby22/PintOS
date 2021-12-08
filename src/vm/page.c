@@ -142,7 +142,7 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
     list_push_back(&child_pages, child_spt_page);
     lock_release(&spt_child->pages_lock);
 
-    // TODO: avoid race conditions here (esp. when adding stuff to parent_frame)
+    // TODO: avoid race conditions here (esp. when adding stuff to shared_frame)
     // Add mapping from page to kernel address
 
     struct frametable *frame_table = get_frame_table();
@@ -152,16 +152,22 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 
     void *kpage = pagedir_get_page(parent->pagedir, child_spt_page->upage);
     install_page(child_spt_page->upage, kpage, child_spt_page->writable);
-    struct frame *parent_frame = lookup_frame(kpage);
+    struct frame *shared_frame = lookup_frame(kpage);
 
     lock_release(&frame_table->lock);
 
     // Need to have a lock here because a list is used and it may be used by many children of the same parent at once.
-    lock_acquire(&parent_frame->children_lock);
+    lock_acquire(&shared_frame->children_lock);
 
-    list_push_back(&parent_frame->children, &child_spt_page->parent_elem);
+    list_push_back(&shared_frame->children, &child_spt_page->parent_elem);
 
-    lock_release(&parent_frame->children_lock);
+    lock_release(&shared_frame->children_lock);
+
+    lock_acquire(&shared_frame->lock);
+
+    shared_frame->users ++;
+
+    lock_release(&shared_frame->lock);
   }
 
   lock_release(&spt_parent->pages_lock);
@@ -174,7 +180,7 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 // TODO: ensure I've locked everything properly
 // I need to make sure that the page where struct thread lives gets freed at the very end
 // Assuming stack has at least one page
-void spt_free_non_shared_pages (struct thread *t) {
+void free_process_resources (struct thread *t) {
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
 
@@ -201,9 +207,7 @@ void spt_free_non_shared_pages (struct thread *t) {
 
       struct list *children = &frame->children;
 
-      int size = list_size(children);
-
-      if (size == 0) {
+      if (frame->users == 1) {
         // Non-shared frame; remove from frame table and free
         struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
 
@@ -212,30 +216,26 @@ void spt_free_non_shared_pages (struct thread *t) {
         uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
 
         palloc_free_page (kpage);
-      } else {
+
+      } else if (frame->users > 1) {
         // Shared frame; don't remove and don't free
 
         ASSERT (!list_empty(&frame->children));
 
+        struct list_elem *removed_elem = list_pop_front(&frame->children);
+        frame->users --;
+
         // Assuming each thread has its page directory at a different address
         if (t->pagedir == frame->pd) {
           // Assign new owner, i.e. update pd and uaddr
-
-          struct list_elem *removed_elem = list_pop_front(&frame->children);
-
           struct spt_page *spt_page = list_entry(removed_elem, struct spt_page, parent_elem);
 
           frame->pd = spt_page->thread->pagedir;
           frame->uaddr = spt_page->upage;
-
-        } else {
-          // Remove reference to dying thread from list children
-
-          struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
-
-          ASSERT (removed_elem != NULL);
-
         }
+
+      } else {
+        PANIC ("0 frame users at reclamation");
       }
 
       lock_release(&frame_table->lock);

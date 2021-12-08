@@ -21,25 +21,25 @@ enum data_type {
 struct spt {
   // Size of executable in memory
   uint32_t exe_size;
+  // Size of stack
   uint32_t stack_size;
+
   // List of all pages used by process (executable, file mappings)
   struct list pages;
   // Lock on struct list pages
   struct lock pages_lock;
 };
 
-// TODO: create an enum that tells us what type of data is in the page: executable, file, stack, or parent's page
 // Executable page
 struct spt_page {
+  // Data type stored in page
+  enum data_type type;
   // Denotes whether page has been loaded
   bool loaded;
   // File to be loaded
   struct file *file;
   // File name. Used for executable pages.
   char *file_name;
-  // If child inherits page from parent, frame_number is used to obtain page's kernel address
-  uint32_t frame_number;
-  enum data_type type;
 
   // Metadata passed in to load_segment
   // Offset within executable file
@@ -65,9 +65,8 @@ struct spt_page {
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
-void spt_free_non_shared_pages (struct thread *t);
 void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
-void spt_free_non_shared_pages (struct thread *t);
+void free_process_resources (struct thread *t);
 
 bool pin_obj (void *uaddr, int size);
 bool unpin_obj (void *uaddr, int size);

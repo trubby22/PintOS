@@ -35,6 +35,9 @@ struct frame
   // Lock on list children
   struct lock children_lock;
 
+  // Number of pages with mapping to this frame
+  int users;
+
   // Lock on the whole struct frame. Idk yet whether we need it.
   struct lock lock;
 

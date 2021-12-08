@@ -586,7 +586,7 @@ thread_schedule_tail (struct thread *prev)
       // palloc_free_multiple (prev, prev->page_count);
       // palloc_free_page (prev); 
 
-      // spt_free_non_shared_pages(prev);
+      // free_process_resources(prev);
     }
 }
 
