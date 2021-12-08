@@ -456,20 +456,27 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
     return -1;
   }
 
-  // TODO: don't search for file given fd in spt_add_mmap_file again
-  // Save file's metadata in SPT. Used for lazy-loading.
-  spt_add_mmap_file (fd, addr);
-  lock_release(&filesystem_lock);
-
   // Calculate number of pages needed
   int pgcnt = size / PGSIZE;
   if (size % PGSIZE)
     pgcnt++;
 
-  void *kaddr = palloc_get_multiple_aux(PAL_ZERO | PAL_USER, pgcnt, thread_current()->pagedir, addr);
+  void *max_addr = addr + PGSIZE * pgcnt;
+
+  if (addr < thread_current()->spt.exe_size + EXE_BASE) 
+  {
+    lock_release(&filesystem_lock);
+    return -1;
+  }
+
+  // TODO: don't search for file given fd in spt_add_mmap_file again
+  // Save file's metadata in SPT. Used for lazy-loading.
+  spt_add_mmap_file (fd, addr);
+  lock_release(&filesystem_lock);
+
 
   // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, kaddr);
+  mapid_t id = mmap_add_mapping(fd, pgcnt, addr);
 
   // Don't allocate resources for file here because the file will be loaded lazily
 

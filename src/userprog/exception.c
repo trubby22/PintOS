@@ -209,12 +209,14 @@ page_fault (struct intr_frame *f)
 
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
-  if (not_present && user) {
-     if (!attempt_load_pages(fault_addr))
+  if (not_present && user)
+  {
+     if (!attempt_load_pages(fault_addr)) 
+     {
         lock_release(&(thread_current()->spt).pages_lock);
+     }
       else {
-         // PANIC("Loaded %u for thread: %s\n", write, thread_current()->name);
-         return;
+        return;
       }
   }
   // Check that the user stack pointer appears to be in stack space:

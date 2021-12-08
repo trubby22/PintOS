@@ -11,13 +11,11 @@ struct mapped_file {
     int fd;                         /* File descriptor of the file opened */
     int pgcnt;                      /* Number of continuous pages */
     void *uaddr;                    /* Address given in syscall */
-    void *kaddr;                    /* Address of kernel pages */
     struct list_elem map_list_elem; /* Element in the list of mappings */
-    bool written;
 };
 
 void mmap_init(void);
-mapid_t mmap_add_mapping(int fd, int pgcnt, void *uaddr, void *kaddr);
+mapid_t mmap_add_mapping(int fd, int pgcnt, void *uaddr);
 bool mmap_remove_mapping(mapid_t mapid);
 
 #endif

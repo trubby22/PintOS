@@ -18,7 +18,7 @@ mmap_init (void)
 }
 
 mapid_t 
-mmap_add_mapping (int fd, int pgcnt, void *uaddr, void *kaddr)
+mmap_add_mapping (int fd, int pgcnt, void *uaddr)
 {
   static mapid_t next_id = 0;
 
@@ -29,7 +29,6 @@ mmap_add_mapping (int fd, int pgcnt, void *uaddr, void *kaddr)
   mapping->fd = fd;
   mapping->pgcnt = pgcnt;
   mapping->uaddr = uaddr;
-  mapping->kaddr = kaddr;
 
   list_push_back(&map_list, &mapping->map_list_elem);
 
@@ -48,25 +47,26 @@ mmap_remove_mapping (mapid_t mapid)
 
     if (mapping->mapid == mapid)
     {
-      acquire_filesystem_lock();
-
-      struct file *file = get_file_or_null(mapping->fd);
-      ASSERT(file);
-      file_seek(file, 0);
-      off_t written = file_write(file, mapping->uaddr, mapping->pgcnt * PGSIZE);
-      file_seek(file, 0);
-      ASSERT(file_length(file) == written);
-
-      release_filesystem_lock();
-
       // TODO: use spt_removal_success to determine return value of mmap_remove_mapping
       bool spt_removal_success = spt_remove_mmap_file(mapping->uaddr);
 
+      acquire_filesystem_lock();
+      struct file *file = get_file_or_null(mapping->fd);
+      uint32_t *pd = thread_current()->pagedir;
+      ASSERT(file);
+      off_t original_pos = file->pos;
+      file_seek(file, 0);
+      
       for (int i = 0; i < mapping->pgcnt; i++) {
-        uint32_t *pd = thread_current()->pagedir;
-        palloc_free_page(pagedir_get_page(pd, mapping->uaddr + PGSIZE * i));
-        pagedir_clear_page(pd, mapping->uaddr + PGSIZE * i);
+        void *pgaddr = mapping->uaddr + PGSIZE * i;
+        if (pagedir_is_dirty(pd, pgaddr))
+          file_write(file, pgaddr, file_length(file));
+
+        palloc_free_page(pagedir_get_page(pd, pgaddr));
+        pagedir_clear_page(pd, pgaddr);
       }
+      file_seek(file, 0);
+      release_filesystem_lock();
     
       list_remove(cur_elem);
       free(mapping);
