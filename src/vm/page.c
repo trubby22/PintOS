@@ -83,8 +83,7 @@ void spt_add_stack_page (void *upage) {
   }
 
   spt_page->upage = upage;
-  spt_page->stack = true;
-  spt_page->executable = false;
+  spt_page->type = STACK;
   spt_page->thread = thread_current();
 
   lock_acquire(&spt->pages_lock);
@@ -100,7 +99,7 @@ static struct spt_page *cpy_spt_page (struct spt_page *src) {
     PANIC ("Could not malloc spt_page in page.c: cpy_spt_page");
   }
 
-  dest->stack = src->stack;
+  dest->type = src->type;
   dest->loaded = src->loaded;
   dest->file = src->file;
   
@@ -131,8 +130,8 @@ void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
 
     // Stack pages are not shared
     
-    if (parent_spt_page->stack ||
-    !same_executable && parent_spt_page->executable) {
+    if (parent_spt_page->type == STACK ||
+    !same_executable && parent_spt_page->type == EXECUTABLE) {
       continue;
     }
 

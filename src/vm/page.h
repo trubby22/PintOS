@@ -11,6 +11,12 @@
 // In the spec it says that it should be: 0x08084000 but from the tests it seems like it's: 0x08048000
 #define EXE_BASE 0x08048000
 
+enum data_type {
+  STACK,
+  EXECUTABLE,
+  FILE
+};
+
 // Supplemental page table
 struct spt {
   // Size of executable in memory
@@ -25,18 +31,15 @@ struct spt {
 // TODO: create an enum that tells us what type of data is in the page: executable, file, stack, or parent's page
 // Executable page
 struct spt_page {
-  // Is true when spt_page stores metadata about a stack page
-  bool stack;
   // Denotes whether page has been loaded
   bool loaded;
   // File to be loaded
   struct file *file;
   // File name. Used for executable pages.
   char *file_name;
-  // True if spt_page belongs to executable file
-  bool executable;
   // If child inherits page from parent, frame_number is used to obtain page's kernel address
   uint32_t frame_number;
+  enum data_type type;
 
   // Metadata passed in to load_segment
   // Offset within executable file
