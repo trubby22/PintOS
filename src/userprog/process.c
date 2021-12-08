@@ -679,7 +679,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
 
 
 bool
-create_stack_page (void **esp, uint32_t pg_num)
+create_stack_page (void **esp)
 {
   uint8_t *kpage;
   bool success = false;
@@ -694,7 +694,7 @@ create_stack_page (void **esp, uint32_t pg_num)
   if (success) {
     spt_add_stack_page(upage);
     spt->stack_size += PGSIZE;
-    *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+    // *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
   }
   return success;
 }
@@ -704,7 +704,7 @@ create_stack_page (void **esp, uint32_t pg_num)
 static bool
 setup_stack (void **esp) 
 {
-  return create_stack_page(esp, 1);
+  return create_stack_page(esp);
 }
 
 // Puts cmd line arguments on the stack

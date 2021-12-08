@@ -476,6 +476,12 @@ running_thread (void)
 static bool
 is_thread (struct thread *t)
 {
+  if (t->magic != THREAD_MAGIC) {
+    PANIC ("magic problem");
+  } 
+  if (t == NULL) {
+    PANIC ("t is null");
+  }
   return t != NULL && t->magic == THREAD_MAGIC;
 }
 
@@ -586,7 +592,7 @@ thread_schedule_tail (struct thread *prev)
       // palloc_free_multiple (prev, prev->page_count);
       // palloc_free_page (prev); 
 
-      // free_process_resources(prev);
+      // spt_free_non_shared_pages(prev);
     }
 }
 

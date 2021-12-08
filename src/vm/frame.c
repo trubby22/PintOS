@@ -87,7 +87,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 
 static void 
 fix_queue(struct frame* new)
-{
+{ 
   if (!frame_table.head)
   {
     frame_table.head = new;
@@ -105,7 +105,9 @@ fix_queue(struct frame* new)
 static struct frame *evict (struct frame *head){
   void *uaddr = head -> uaddr;
   uint32_t *pd = head -> pd;
-  bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
+  bool accessed = pagedir_is_accessed(pd,uaddr);
+  bool dirty = pagedir_is_dirty(pd,uaddr);
+  bool save = (accessed || dirty);
   if (save || head -> pinned){
     pagedir_reset(pd,uaddr);
     return evict(head->next);

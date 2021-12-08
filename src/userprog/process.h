@@ -27,7 +27,7 @@ void init_hash_table (void);
 struct process_hash_item *get_process_item(void);
 
 bool
-create_stack_page (void **esp, uint32_t pg_num);
+create_stack_page (void **esp);
 
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);

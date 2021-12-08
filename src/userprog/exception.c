@@ -235,7 +235,7 @@ page_fault (struct intr_frame *f)
 
    // Create new page
    //   thread_current()->page_addr -= PGSIZE;
-     if (create_stack_page(&esp, new_count))
+     if (create_stack_page(&esp))
      {
         return;
      }
