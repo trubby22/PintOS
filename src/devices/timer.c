@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "vm/frame.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -170,8 +171,12 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+
   ticks++;
   thread_tick ();
+  if (ticks % TIMER_FREQ & ticks > 0){
+    reset_all_accessed_bits();
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

@@ -13,6 +13,12 @@ static struct frametable frame_table;
 
 static void fix_queue(struct frame* new);
 
+struct frame_owner{
+  uint32_t *pd;
+  void *uaddr;
+  struct list_elem elem;
+};
+
 unsigned 
 frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
@@ -157,3 +163,13 @@ void unpin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
   frame -> pinned = false;
 }
+
+void reset_accessed_bits (struct hash_elem *e, void *aux UNUSED){
+  struct frame *f = hash_entry(e, struct frame, elem);
+  pagedir_reset(f->pd, f->uaddr);
+}
+
+void reset_all_accessed_bits(void){
+  hash_apply (&frame_table.table, reset_accessed_bits);
+}
+

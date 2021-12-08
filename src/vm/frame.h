@@ -3,6 +3,7 @@
 #include <inttypes.h>
 #include "lib/kernel/hash.h"
 #include "threads/synch.h"
+#include <hash.h>
 
 // TODO: add a lock on struct frame
 
@@ -55,5 +56,8 @@ struct frametable *get_frame_table (void);
 
 void pin_frame (void *address);
 void unpin_frame (void *address);
+
+void reset_all_accessed_bits(void);
+void reset_accessed_bits (struct hash_elem *e, void *aux);
 
 #endif

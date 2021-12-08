@@ -240,7 +240,7 @@ void
 pagedir_reset (uint32_t *pd, const void *vpage)
 {
   uint32_t *pte = lookup_page (pd, vpage, false);
-  if (pte != NULL) 
+  if (pte != NULL && *pte & PTE_P) 
     {
       *pte &= ~(uint32_t) PTE_D;
       *pte &= ~(uint32_t) PTE_A; 
