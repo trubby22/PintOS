@@ -583,7 +583,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       lock_acquire(&spt->pages_lock);
       bool pages_is_empty = list_empty(pages);
       if (!pages_is_empty) {
-        prev = list_back(pages);
+        prev = list_entry(list_back(pages), struct spt_page, elem);
       }
       lock_release(&spt->pages_lock);
 
@@ -682,8 +682,8 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
 bool
 create_stack_page (void **esp, uint32_t pg_num)
 {
-  //lock_acquire(&get_frame_table()->lock);
-  //enum intr_level old_level = intr_disable ();
+  // lock_acquire(get_frame_table->lock);
+  // enum intr_level old_level = intr_disable ();
   uint8_t *kpage;
   bool success = false;
   struct thread *t = thread_current();
@@ -707,7 +707,6 @@ create_stack_page (void **esp, uint32_t pg_num)
     palloc_free_page (kpage);
   }
 
-  
   return success;
 }
 
