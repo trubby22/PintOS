@@ -455,7 +455,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (size % PGSIZE)
     pgcnt++;
 
-  void *kaddr = palloc_get_multiple(PAL_ZERO | PAL_USER, pgcnt);
+  void *kaddr = palloc_get_multiple_aux(PAL_ZERO | PAL_USER, pgcnt, thread_current()->pagedir, addr);
 
   // Store the mapping in the list
   mapid_t id = mmap_add_mapping(fd, pgcnt, addr, kaddr);

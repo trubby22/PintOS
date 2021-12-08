@@ -90,13 +90,13 @@ kill (struct intr_frame *f)
     {
     case SEL_UCSEG:
     {
-      /* User's code segment, so it's a user exception, as we
-         expected.  Kill the user process.  */
-      printf ("%s: dying due to interrupt %#04x (%s).\n",
-              thread_name (), f->vec_no, intr_name (f->vec_no));
-      intr_dump_frame (f);
-      thread_current()->info->exit_status = -1;
-      syscall_exit(-1);
+       /* User's code segment, so it's a user exception, as we
+          expected.  Kill the user process.  */
+       printf("%s: dying due to interrupt %#04x (%s).\n",
+              thread_name(), f->vec_no, intr_name(f->vec_no));
+       intr_dump_frame(f);
+       thread_current()->info->exit_status = -1;
+       syscall_exit(-1);
    }
 
     case SEL_KCSEG:
@@ -116,7 +116,9 @@ kill (struct intr_frame *f)
     }
 }
 
-static bool check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) {
+static bool 
+check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) 
+{
   if (!spt_page->loaded && 
   fault_addr >= spt_page->start_addr && 
   fault_addr <= spt_page->start_addr + PGSIZE) 
@@ -144,11 +146,11 @@ attempt_load_pages(void *fault_addr)
    struct thread *t = thread_current();
    struct spt *spt = &t->spt;
    struct list *pages = &spt->pages;
+   ASSERT(pages);
 
    struct list_elem *e;
 
    lock_acquire(&spt->pages_lock);
-   ASSERT(pages);
    ASSERT(list_begin(pages));
    ASSERT(list_end(pages));
    for (e = list_begin(pages); e != list_end(pages); e = list_next(e))
@@ -215,8 +217,7 @@ page_fault (struct intr_frame *f)
          return;
       }
   }
-
-  //Check that the user stack pointer appears to be in stack space:
+  // Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
 
   ASSERT(esp);
@@ -230,7 +231,7 @@ page_fault (struct intr_frame *f)
      uint32_t new_count = thread_current()->page_count + 1;
      thread_current()->page_count = new_count;
 
-     // Create new page
+   // Create new page
    //   thread_current()->page_addr -= PGSIZE;
      if (create_stack_page(&esp, new_count))
      {
