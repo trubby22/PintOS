@@ -81,6 +81,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
     hash_insert(&frame_table.table,&frame->elem);
 	}
 
+  ASSERT (frame != NULL);
   list_init(&frame -> children);
   lock_init(&frame->lock);
   lock_init(&frame->children_lock);
@@ -140,8 +141,7 @@ static struct frame *evict (struct frame *head){
   }
 
   //Removes the refernce to this frame in the page table entry
-  uint32_t *pte = get_pte(pd, uaddr);
-  *pte = *pte & PTE_FLAGS;
+  pagedir_clear_page(pd, uaddr);
   
 	frame_table.head = head -> next;
 	return head;
