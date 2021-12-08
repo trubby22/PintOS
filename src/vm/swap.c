@@ -31,10 +31,24 @@ struct swap_table{
 
 static struct swap_table swap_table;
 
+unsigned 
+swap_hash(const struct hash_elem *e, void *aux UNUSED)
+{
+  struct frame *s = hash_entry(e, struct frame, elem);
+  return (unsigned) s -> pd ^ (unsigned) s -> uaddr;
+}
+
+bool 
+swap_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+{
+  return swap_hash(a,NULL) < swap_hash(b, NULL);
+}
+
+
 void init_swap_table(void){
   swap_table.swap_block = block_get_role(BLOCK_SWAP);
   swap_table.bitmap = bitmap_create(4096);
-  hash_init(&swap_table.table, NULL, NULL, NULL);
+  hash_init(&swap_table.table, swap_hash, swap_less, NULL);
 }
 
 
@@ -51,16 +65,17 @@ bool write_swap_slot(struct frame* frame){
     swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
     swap_slot -> pd = frame -> pd;
     swap_slot -> vaddr = frame -> uaddr;
+    hash_insert(&swap_table.table,&swap_slot->elem);
   }
   return true;
 }
 
 // could be void
 void read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
-  struct swap_slot *dummy_s;
-  dummy_s -> pd = pd;
-  dummy_s -> vaddr = vadrr;
-  struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s->elem);
+  struct swap_slot dummy_s;
+  dummy_s.pd = pd;
+  dummy_s.vaddr = vadrr;
+  struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
   struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
   bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
   for (int i = 0; i < swap_slot -> size; i++){
