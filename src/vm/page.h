@@ -19,14 +19,13 @@ enum data_type {
 
 // Supplemental page table
 struct spt {
-  // Size of executable in memory
-  uint32_t exe_size;
   // Size of stack
   uint32_t stack_size;
 
   // List of all pages used by process (executable, file mappings)
   struct list pages;
   // Lock on struct list pages
+  // If only one process at a time can access pages, this lock is redundant
   struct lock pages_lock;
 };
 
@@ -59,13 +58,14 @@ struct spt_page {
   struct list_elem parent_elem;
 
   // Pointer to thread that owns spt_page
+  // Possibly redundant
   struct thread *thread;
 };
 
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
-void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
+void share_pages (struct thread *parent, struct thread *child);
 void free_process_resources (struct thread *t);
 
 bool pin_obj (void *uaddr, int size);

@@ -113,7 +113,7 @@ static struct spt_page *cpy_spt_page (struct spt_page *src) {
 }
 
 // Copies non-stack parent's spt pages to child's spt
-void spt_cpy_pages_to_child (struct thread *parent, struct thread *child) {
+void share_pages (struct thread *parent, struct thread *child) {
   struct spt *spt_parent = &parent->spt;
   struct spt *spt_child = &child->spt;
 
