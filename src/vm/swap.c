@@ -39,7 +39,7 @@ void init_swap_table(void){
 
 
 // could be void
-bool add_swap_slot(struct frame* frame){
+bool write_swap_slot(struct frame* frame){
   size_t start = bitmap_scan_and_flip(swap_table.bitmap, 0, frame -> size * SECTORS_PER_PAGE, 0);
   if (start == BITMAP_ERROR)
   {
@@ -56,7 +56,7 @@ bool add_swap_slot(struct frame* frame){
 }
 
 // could be void
-bool read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
+void read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
   struct swap_slot *dummy_s;
   dummy_s -> pd = pd;
   dummy_s -> vaddr = vadrr;
@@ -69,7 +69,6 @@ bool read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
   block_write(swap_table.swap_block, swap_slot -> sector, kpage);
   hash_delete(&swap_table.table, &swap_slot -> elem);
   free(swap_slot);
-  return true;
 }
 
 

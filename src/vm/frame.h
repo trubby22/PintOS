@@ -20,8 +20,7 @@ struct frame
 {
   // What are the keys and what are the values? I mean when struct frame is used inside hash table
 
-  uint32_t frame_number;
-  void* address;           //value
+  void* address;           //key
 
   uint32_t *pd;            // page directory of the process that owns this frame
   void* uaddr;             // corresponding page of the proces that owns this frame

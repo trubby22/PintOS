@@ -6,6 +6,7 @@
 #include "threads/pte.h"
 #include "threads/palloc.h"
 #include "vm/frame.h"
+#include "vm/swap.h"
 
 static uint32_t *active_pd (void);
 static void invalidate_pagedir (uint32_t *);
@@ -144,6 +145,9 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
     if (*pte & PTE_ADDR == 0)
     {
       //Page is in table but has no frame!
+      void* kpage = palloc_get_page_aux(PAL_USER | PAL_ZERO, pd, uaddr);
+      read_swap_slot(pd, uaddr, kpage);
+      *pte = pte_create_user (kpage, 0) | *pte;
 
     }
     

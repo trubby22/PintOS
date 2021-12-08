@@ -108,18 +108,19 @@ static struct frame *evict (struct frame *head){
   void *uaddr = head -> uaddr;
   uint32_t *pd = head -> pd;
   bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
-  if (save){
+  if (save || head -> pinned){
     pagedir_reset(pd,uaddr);
     return evict(head->next);
   }
+
+
 	//Allocate swap slot for page panic if none left
-  bool success = add_swap_slot(head);
+  bool success = write_swap_slot(head);
   if (!success)
   {
     PANIC("at the distro");
   }
 
- 
   //Removes the refernce to this frame in the page table entry
   uint32_t *pte = get_pte(pd, uaddr);
   *pte = *pte & PTE_FLAGS;
@@ -132,11 +133,13 @@ struct frametable *get_frame_table (void) {
   return &frame_table;
 }
 
+// idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
 void pin_frame (void *address) {
-  // TODO
-  // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
+  struct frame *frame = lookup_frame(address);
+  frame -> pinned = true;
 }
 
 void unpin_frame (void *address) {
-  // TODO
+  struct frame *frame = lookup_frame(address);
+  frame -> pinned = false;
 }
