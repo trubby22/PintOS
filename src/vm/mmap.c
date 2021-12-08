@@ -54,13 +54,14 @@ mmap_remove_mapping (mapid_t mapid)
       struct file *file = get_file_or_null(mapping->fd);
       uint32_t *pd = thread_current()->pagedir;
       ASSERT(file);
-      off_t original_pos = file->pos;
       file_seek(file, 0);
-      
+  
       for (int i = 0; i < mapping->pgcnt; i++) {
         void *pgaddr = mapping->uaddr + PGSIZE * i;
         if (pagedir_is_dirty(pd, pgaddr))
           file_write(file, pgaddr, file_length(file));
+        else
+          file_seek(file, file_tell(file) + PGSIZE);
 
         palloc_free_page(pagedir_get_page(pd, pgaddr));
         pagedir_clear_page(pd, pgaddr);
@@ -74,5 +75,5 @@ mmap_remove_mapping (mapid_t mapid)
     }
     cur_elem = list_next(cur_elem);
   }
-  return false;
+  PANIC("Can't find mapid in mapped files list");
 }
