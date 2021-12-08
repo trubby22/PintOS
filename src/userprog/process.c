@@ -14,6 +14,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/flags.h"
+#include "vm/frame.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
@@ -681,6 +682,8 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
 bool
 create_stack_page (void **esp, uint32_t pg_num)
 {
+  //lock_acquire(&get_frame_table()->lock);
+  //enum intr_level old_level = intr_disable ();
   uint8_t *kpage;
   bool success = false;
   struct thread *t = thread_current();
@@ -694,8 +697,9 @@ create_stack_page (void **esp, uint32_t pg_num)
   if (success) {
     spt_add_stack_page(upage);
     spt->stack_size += PGSIZE;
-    *esp = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
+    *esp = (void *) PHYS_BASE - spt->stack_size;
   }
+  
   return success;
 }
 
