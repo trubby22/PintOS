@@ -112,7 +112,7 @@ main (void)
   /* Initialize interrupt handlers. */
   intr_init ();
   timer_init ();
-  kbd_init ();
+  kbd_init (); 
   input_init ();
 #ifdef USERPROG
   exception_init ();
@@ -122,7 +122,6 @@ main (void)
 
 #ifdef VM
   init_frame_table();
-  init_swap_table();
 #endif
 
   /* Start thread scheduler and enable interrupts. */
@@ -135,6 +134,10 @@ main (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+#endif
+
+#ifdef VM
+  init_swap_table();
 #endif
 
   printf ("Boot complete.\n");

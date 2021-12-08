@@ -103,6 +103,18 @@ fix_queue(struct frame* new)
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
 static struct frame *evict (struct frame *head){
+  do {
+    void *uaddr = head -> uaddr;
+    uint32_t *pd = head -> pd;
+    bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
+    if (save || head -> pinned){
+      pagedir_reset(pd,uaddr);
+      head = head -> next;
+    } else{
+      break;
+    }
+  } while (true);
+  
   void *uaddr = head -> uaddr;
   uint32_t *pd = head -> pd;
   bool accessed = pagedir_is_accessed(pd,uaddr);

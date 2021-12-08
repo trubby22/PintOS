@@ -149,7 +149,7 @@ palloc_free_multiple (void *pages, size_t page_cnt)
     NOT_REACHED ();
 
   page_idx = pg_no (pages) - pg_no (pool->base);
-
+ 
 #ifndef NDEBUG
   memset (pages, 0xcc, PGSIZE * page_cnt);
 #endif

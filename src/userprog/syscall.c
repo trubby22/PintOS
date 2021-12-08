@@ -429,7 +429,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   int fd = *((int *) arg1);
   void *addr = (void *) *((uint32_t **) arg2);
 
-  if (fd == 0 || fd == 1) {
+  if (fd == STDIN_FILENO || fd == STDOUT_FILENO) {
     return -1;
   }
 
@@ -461,8 +461,6 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (size % PGSIZE)
     pgcnt++;
 
-  void *max_addr = addr + PGSIZE * pgcnt;
-
   if (addr < thread_current()->spt.exe_size + EXE_BASE) 
   {
     lock_release(&filesystem_lock);
@@ -473,7 +471,6 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   // Save file's metadata in SPT. Used for lazy-loading.
   spt_add_mmap_file (fd, addr);
   lock_release(&filesystem_lock);
-
 
   // Store the mapping in the list
   mapid_t id = mmap_add_mapping(fd, pgcnt, addr);

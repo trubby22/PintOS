@@ -60,9 +60,10 @@ bool write_swap_slot(struct frame* frame){
     return false; //or panic
   } else{
     struct swap_slot *swap_slot = malloc(sizeof(swap_slot));
-    PANIC ("");
-    for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) 
+    for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) {
+      ASSERT (swap_table.swap_block);
       block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
+    }
     swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
     swap_slot -> pd = frame -> pd;
     swap_slot -> vaddr = frame -> uaddr;
