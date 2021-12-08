@@ -501,7 +501,6 @@ init_thread (struct thread *t, const char *name, int priority)
   // Initializes thread's SPT
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
-  spt->exe_size = 0;
   spt->stack_size = 0;
   list_init(pages);
   lock_init(&spt->pages_lock);
@@ -586,7 +585,7 @@ thread_schedule_tail (struct thread *prev)
       // palloc_free_multiple (prev, prev->page_count);
       // palloc_free_page (prev); 
 
-      // spt_free_non_shared_pages(prev);
+      // free_process_resources(prev);
     }
 }
 

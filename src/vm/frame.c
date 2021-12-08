@@ -13,18 +13,21 @@ static struct frametable frame_table;
 
 static void fix_queue(struct frame* new);
 
-unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED)
+unsigned 
+frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
   struct frame *f = hash_entry(e, struct frame, elem);
   return (unsigned) f -> address;
 }
 
-bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+bool 
+frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
   return frame_hash(a,NULL) < frame_hash(b, NULL);
 }
 
-void init_frame_table(void)
+void 
+init_frame_table(void)
 {
   hash_init(&frame_table.table, frame_hash, frame_less, NULL);
   lock_init(&frame_table.lock);
@@ -32,10 +35,12 @@ void init_frame_table(void)
 
 /* Looks up frame with kpage in the frame table 
    returns NULL if the frame does not exist */
-struct frame *lookup_frame(void *kpage){
+struct frame *
+lookup_frame(void *kpage)
+{
   //search table using dummy elem
   struct frame *dummy_f;
-  dummy_f -> address = kpage;
+  dummy_f->address = kpage;
   struct hash_elem *f = hash_find(&frame_table.table, &dummy_f->elem);
   //miss
   if (!f){
@@ -49,34 +54,42 @@ struct frame *lookup_frame(void *kpage){
 static struct frame *evict (struct frame *head);
 
 /* Returns a new frame. Evicts if needed */
-void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
+void * 
+frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
+{
   struct frame *frame;
 	if (!kpage)
 	{
     frame = evict (frame_table.head);
     //free the page in case the size is different
-    palloc_free_multiple(frame -> address, frame -> size);
-    frame -> address = palloc_get_multiple(PAL_USER | PAL_ZERO, size);
-	} else{
+    palloc_free_multiple(frame->address, frame->size);
+    frame->address = palloc_get_multiple(PAL_USER | PAL_ZERO, size);
+  }
+  else
+  {
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = kpage;
-    list_init(&frame -> children);
-    lock_init(&frame->lock);
-    lock_init(&frame->children_lock);
-
+    
     //fix circular queue
     fix_queue(frame);
     //add to frame table
     hash_insert(&frame_table.table,&frame->elem);
 	}
+
+  list_init(&frame -> children);
+  lock_init(&frame->lock);
+  lock_init(&frame->children_lock);
+  frame -> users = 1;
   frame -> size = size;
   frame -> pd = pd;
   frame -> uaddr = vaddr;
 	return frame -> address;
 }
 
-static void fix_queue(struct frame* new){
+static void 
+fix_queue(struct frame* new)
+{
   if (!frame_table.head)
   {
     frame_table.head = new;
@@ -84,9 +97,9 @@ static void fix_queue(struct frame* new){
     return;
   }
 	struct frame *head = frame_table.head;
-	new -> next  = head -> next;
-	head -> next = new;
-	frame_table.head = new -> next;
+  new->next = head->next;
+  head->next = new;
+  frame_table.head = new->next;
 }
 
 /* Implements a second chance eviction algorithm
