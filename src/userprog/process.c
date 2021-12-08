@@ -692,6 +692,9 @@ create_stack_page (void **esp, uint32_t pg_num)
 
   // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
   kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO | PAL_ASSERT, t -> pagedir, upage);
+  if(kpage == NULL) {
+    return false;
+  }
   success = install_page (upage, kpage, true);
   
   if (success) {
@@ -699,6 +702,11 @@ create_stack_page (void **esp, uint32_t pg_num)
     spt->stack_size += PGSIZE;
     *esp = (void *) PHYS_BASE - spt->stack_size;
   }
+  else
+  {
+    palloc_free_page (kpage);
+  }
+
   
   return success;
 }
