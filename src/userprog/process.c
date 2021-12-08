@@ -189,7 +189,7 @@ start_process (void *data_from_parent)
 
   struct thread *t = thread_current();
 
-  spt_cpy_pages_to_child (parent, t);
+  share_pages (parent, t);
 
   acquire_filesystem_lock();
   success = load (function_name, &if_.eip, &if_.esp);
@@ -622,9 +622,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       file->pos += page_read_bytes;
 
       /* Advance. */
-      if (type == EXECUTABLE) {
-        spt->exe_size += PGSIZE;
-      }
       ofs += PGSIZE;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;

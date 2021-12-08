@@ -30,6 +30,7 @@ struct frame
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
 
+  // Possibly redundant; might have a list of struct pd_uaddr so as to be able to access only the pagedir and user address of each process that has access to frame
   struct list children;    // List of spts of child processes that the frame is shared with
 
   // Lock on list children
