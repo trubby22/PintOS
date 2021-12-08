@@ -39,10 +39,11 @@ struct frame *
 lookup_frame(void *kpage)
 {
   //search table using dummy elem
-  struct frame *dummy_f;
-  dummy_f->address = kpage;
-  struct hash_elem *f = hash_find(&frame_table.table, &dummy_f->elem);
-  //miss
+  struct frame dummy_f;
+  dummy_f.address = kpage;
+  struct hash_elem *f = hash_find(&frame_table.table, &dummy_f.elem);
+
+  // miss
   if (!f){
     return NULL;
   }
@@ -61,9 +62,6 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 	if (!kpage)
 	{
     frame = evict (frame_table.head);
-    //free the page in case the size is different
-    palloc_free_multiple(frame->address, frame->size);
-    frame->address = palloc_get_multiple(PAL_USER | PAL_ZERO, size);
   }
   else
   {
@@ -136,7 +134,9 @@ struct frametable *get_frame_table (void) {
 // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
 void pin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
-  frame -> pinned = true;
+  if (!frame)
+    PANIC("Kill");
+  frame->pinned = true;
 }
 
 void unpin_frame (void *address) {
