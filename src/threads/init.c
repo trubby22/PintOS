@@ -39,6 +39,7 @@
 #endif
 #ifdef VM
 #include "vm/frame.h"
+#include "vm/swap.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -121,6 +122,7 @@ main (void)
 
 #ifdef VM
   init_frame_table();
+  init_swap_table();
 #endif
 
   /* Start thread scheduler and enable interrupts. */

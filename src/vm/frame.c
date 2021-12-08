@@ -29,7 +29,7 @@ frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSE
 void 
 init_frame_table(void)
 {
-  hash_init(&frame_table.table, frame_hash, frame_less, NULL);
+  hash_init(&frame_table.table, &frame_hash, &frame_less, NULL);
   lock_init(&frame_table.lock);
 }
 
@@ -61,9 +61,6 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 	if (!kpage)
 	{
     frame = evict (frame_table.head);
-    //free the page in case the size is different
-    palloc_free_multiple(frame->address, frame->size);
-    frame->address = palloc_get_multiple(PAL_USER | PAL_ZERO, size);
   }
   else
   {
@@ -81,7 +78,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   lock_init(&frame->lock);
   lock_init(&frame->children_lock);
   frame -> users = 1;
-  frame -> size = size;
+  frame -> size = size; //Should always be 1
   frame -> pd = pd;
   frame -> uaddr = vaddr;
 	return frame -> address;
@@ -136,6 +133,11 @@ struct frametable *get_frame_table (void) {
 // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
 void pin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
+  if (!frame)
+  {
+    PANIC("LLL");
+  }
+  
   frame -> pinned = true;
 }
 

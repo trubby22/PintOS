@@ -24,7 +24,7 @@ struct frame
 
   uint32_t *pd;            // page directory of the process that owns this frame
   void* uaddr;             // corresponding page of the proces that owns this frame
-  int size;                //if added through frame multiple
+  int size;                // NOT USED
 
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
