@@ -650,11 +650,13 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
   struct thread *t = thread_current ();
   uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
   
-  if (kpage == NULL){
+  if (!kpage)
+  {
     
     /* Get a new page of memory. */
-    kpage = palloc_get_page_aux (PAL_USER, t -> pagedir, upage);
-    if (kpage == NULL){
+    kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO, t->pagedir, upage);
+    if (!kpage)
+    {
       return false;
     }
     
@@ -673,7 +675,6 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
       palloc_free_page (kpage);
       return false; 
     }
-  memset (kpage + read_bytes, 0, zero_bytes);
   
   return true;
 }

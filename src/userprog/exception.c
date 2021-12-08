@@ -126,7 +126,9 @@ check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr)
 
     acquire_filesystem_lock();
     // Loads missing page from file or executable
+    //ASSERT(spt_page->writable);
     bool success = load_page(spt_page->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
+    //PANIC("HERE: %d", success);
     release_filesystem_lock();
 
     if (success) {
