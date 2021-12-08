@@ -101,6 +101,7 @@ syscall_handler (struct intr_frame *f)
   uint32_t *sp = f->esp;
 
   validate_user_pointer((uint32_t *) sp);
+  pin_obj(sp, sizeof(sp));
 
   // Reads syscall number from stack
   int syscall_num = (int) *sp;
@@ -119,7 +120,17 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer((uint32_t *) arg2_ptr);
   }
   
+  // Do we want to pin the pointers or the objects the pointers point to?
+  pin_obj(arg1_ptr, sizeof(arg1_ptr));
+  pin_obj(arg2_ptr, sizeof(arg2_ptr));
+  pin_obj(arg3_ptr, sizeof(arg3_ptr));
+
   f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
+
+  unpin_obj(arg3_ptr, sizeof(arg3_ptr));
+  unpin_obj(arg2_ptr, sizeof(arg2_ptr));
+  unpin_obj(arg1_ptr, sizeof(arg1_ptr));
+  
 }
 
 /* Checks a user pointer is not NULL, is within user space and is 
@@ -371,7 +382,8 @@ read_userprog (void **arg1, void **arg2, void **arg3)
     lock_release(&filesystem_lock);
     return -1;
   }
-  off_t result = file_read (file, (void *) buffer, size);
+
+  off_t result = file_read (file, buffer, size);
   lock_release(&filesystem_lock);
   return result;
 }
@@ -454,8 +466,10 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (size % PGSIZE)
     pgcnt++;
 
+  void *kaddr = palloc_get_multiple(PAL_ZERO | PAL_USER, pgcnt);
+
   // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, NULL);
+  mapid_t id = mmap_add_mapping(fd, pgcnt, addr, kaddr);
 
   // Don't allocate resources for file here because the file will be loaded lazily
 

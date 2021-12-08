@@ -8,12 +8,7 @@
 #include "userprog/pagedir.h"
 #include "threads/pte.h"
 
-/* A frame table maps a frame to a user page. */
-struct frametable
-{
-  struct frame *head; //Head of circular queue, needed for eviction
-  struct hash table;  //
-};
+static struct frametable frame_table;
 
 static void fix_queue(struct frame* new);
 
@@ -28,11 +23,10 @@ bool frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux 
   return frame_hash(a,NULL) < frame_hash(b, NULL);
 }
 
-static struct frametable frame_table;
-
 void init_frame_table(void)
 {
   hash_init(&frame_table.table, frame_hash, frame_less, NULL);
+  lock_init(&frame_table.lock);
 }
 
 /* Looks up frame with kpage in the frame table 
@@ -67,6 +61,10 @@ void* frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size){
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = kpage;
+    list_init(&frame -> children);
+    lock_init(&frame->lock);
+    lock_init(&frame->children_lock);
+
     //fix circular queue
     fix_queue(frame);
     //add to frame table
@@ -90,7 +88,6 @@ static void fix_queue(struct frame* new){
 	frame_table.head = new -> next;
 }
 
-
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
 static struct frame *evict (struct frame *head){
@@ -109,4 +106,17 @@ static struct frame *evict (struct frame *head){
   
 	frame_table.head = head -> next;
 	return head;
+}
+
+struct frametable *get_frame_table (void) {
+  return &frame_table;
+}
+
+void pin_frame (void *address) {
+  // TODO
+  // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
+}
+
+void unpin_frame (void *address) {
+  // TODO
 }

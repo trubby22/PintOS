@@ -113,7 +113,6 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     uint32_t page_count;
-    uint32_t page_addr;
     // Process's supplemental page table
     struct spt spt;
 #endif

@@ -13,6 +13,7 @@ struct mapped_file {
     void *uaddr;                    /* Address given in syscall */
     void *kaddr;                    /* Address of kernel pages */
     struct list_elem map_list_elem; /* Element in the list of mappings */
+    bool written;
 };
 
 void mmap_init(void);

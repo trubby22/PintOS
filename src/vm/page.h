@@ -34,6 +34,12 @@ struct spt_page {
   bool loaded;
   // File to be loaded
   struct file *file;
+  // File name. Used for executable pages.
+  char *file_name;
+  // True if spt_page belongs to executable file
+  bool executable;
+  // If child inherits page from parent, frame_number is used to obtain page's kernel address
+  uint32_t frame_number;
 
   // Metadata passed in to load_segment
   // Offset within executable file
@@ -46,12 +52,24 @@ struct spt_page {
   uint32_t zero_bytes;
   // Says whether segment can be written to. If false, segment is read-only.
   bool writable;
-  // Elem for adding to hash segments in spt
+
+  // Elem for adding to spt
   struct list_elem elem;
+  // Elem for adding spt_page to list of children in parent's frame
+  struct list_elem parent_elem;
+
+  // Pointer to thread that owns spt_page
+  struct thread *thread;
 };
 
 void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
+void spt_free_non_shared_pages (struct thread *t);
+void spt_cpy_pages_to_child (struct thread *parent, struct thread *child);
+void spt_free_non_shared_pages (struct thread *t);
+
+bool pin_obj (void *uaddr, int size);
+bool unpin_obj (void *uaddr, int size);
 
 #endif

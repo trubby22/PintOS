@@ -2,6 +2,8 @@
 #define USERPROG_PROCESS_H
 
 #include "threads/thread.h"
+#include "lib/kernel/list.h"
+#include "vm/page.h"
 
 // 4 MB
 #define STACK_LIMIT 0x400000
@@ -14,6 +16,11 @@ struct arg {
 struct length {
   int size;
   struct list_elem elem;
+};
+
+struct data_from_parent {
+  struct list *args_list;
+  struct thread *parent;
 };
 
 void init_hash_table (void);
