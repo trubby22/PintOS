@@ -174,9 +174,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   ticks++;
   thread_tick ();
-  if (ticks % TIMER_FREQ & ticks > 0){
-    reset_all_accessed_bits();
-  }
+  // if (ticks % TIMER_FREQ & ticks > 0){
+  //   reset_all_accessed_bits();
+  // }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
