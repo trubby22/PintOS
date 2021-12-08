@@ -21,6 +21,8 @@ enum data_type {
 struct spt {
   // Size of stack
   uint32_t stack_size;
+  // Size of executable in memory
+  uint32_t exe_size;
 
   // List of all pages used by process (executable, file mappings)
   struct list pages;

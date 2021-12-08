@@ -501,6 +501,7 @@ init_thread (struct thread *t, const char *name, int priority)
   // Initializes thread's SPT
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
+  spt->exe_size = 0;
   spt->stack_size = 0;
   list_init(pages);
   lock_init(&spt->pages_lock);

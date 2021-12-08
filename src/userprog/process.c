@@ -622,6 +622,9 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       file->pos += page_read_bytes;
 
       /* Advance. */
+      if (type == EXECUTABLE) {
+        spt->exe_size += PGSIZE;
+      }
       ofs += PGSIZE;
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
