@@ -157,17 +157,20 @@ void share_pages (struct thread *parent, struct thread *child) {
     lock_release(&frame_table->lock);
 
     // Need to have a lock here because a list is used and it may be used by many children of the same parent at once.
-    lock_acquire(&shared_frame->children_lock);
+    lock_acquire(&shared_frame->user_pages_lock);
 
-    list_push_back(&shared_frame->children, &child_spt_page->parent_elem);
+    // TODO: remember to free
+    struct user_page *user_page = malloc(sizeof(struct user_page));
+    if (user_page == NULL) {
+      PANIC ("Malloc failed");
+    }
 
-    lock_release(&shared_frame->children_lock);
+    user_page->pd = child->pagedir;
+    user_page->uaddr = child_spt_page->upage;
 
-    lock_acquire(&shared_frame->lock);
+    list_push_back(&shared_frame->user_pages, &user_page->elem);
 
-    shared_frame->users ++;
-
-    lock_release(&shared_frame->lock);
+    lock_release(&shared_frame->user_pages_lock);
   }
 
   lock_release(&spt_parent->pages_lock);
@@ -176,10 +179,10 @@ void share_pages (struct thread *parent, struct thread *child) {
 // TODO: method init_spt_page that sets up spt_page with default values
 
 // Frees all resources belonging to thread (stack, executable, memory-mapped files)
-// TODO: make this function communicate with frame table
-// TODO: ensure I've locked everything properly
 // I need to make sure that the page where struct thread lives gets freed at the very end
 // Assuming stack has at least one page
+// TODO: make this function communicate with frame table
+// TODO: ensure I've locked everything properly
 void free_process_resources (struct thread *t) {
   struct spt *spt = &t->spt;
   struct list *pages = &spt->pages;
@@ -204,10 +207,9 @@ void free_process_resources (struct thread *t) {
 
       void *kpage = pagedir_get_page(t->pagedir, upage);
       struct frame *frame = lookup_frame(kpage);
+      int users = list_size(&frame->user_pages);
 
-      struct list *children = &frame->children;
-
-      if (frame->users == 1) {
+      if (users == 1) {
         // Non-shared frame; remove from frame table and free
         struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
 
@@ -217,22 +219,16 @@ void free_process_resources (struct thread *t) {
 
         palloc_free_page (kpage);
 
-      } else if (frame->users > 1) {
+      } else if (users > 1) {
         // Shared frame; don't remove and don't free
 
-        ASSERT (!list_empty(&frame->children));
+        ASSERT (!list_empty(&frame->user_pages));
 
-        struct list_elem *removed_elem = list_pop_front(&frame->children);
-        frame->users --;
+        struct list_elem *removed_elem = list_pop_back(&frame->user_pages);
 
-        // Assuming each thread has its page directory at a different address
-        if (t->pagedir == frame->pd) {
-          // Assign new owner, i.e. update pd and uaddr
-          struct spt_page *spt_page = list_entry(removed_elem, struct spt_page, parent_elem);
+        struct user_page *user_page = list_entry(removed_elem, struct user_page, elem);
 
-          frame->pd = spt_page->thread->pagedir;
-          frame->uaddr = spt_page->upage;
-        }
+        free(user_page);
 
       } else {
         PANIC ("0 frame users at reclamation");

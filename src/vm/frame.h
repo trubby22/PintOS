@@ -13,14 +13,12 @@ struct frametable
   struct frame *head; //Head of circular queue, needed for eviction
   struct hash table;
 
-  // Might be too coarse-grained. Would be better to lock individual frames.
+  // Lock on frametable
   struct lock lock;
 };
 
 struct frame
 {
-  // What are the keys and what are the values? I mean when struct frame is used inside hash table
-
   void* address;           //key
 
   uint32_t *pd;            // page directory of the process that owns this frame
@@ -30,20 +28,28 @@ struct frame
   struct hash_elem elem;   //Elem to be part of frame table
   struct frame *next;      //Pointer to be part of circular queue for eviction
 
-  // Possibly redundant; might have a list of struct pd_uaddr so as to be able to access only the pagedir and user address of each process that has access to frame
-  struct list children;    // List of spts of child processes that the frame is shared with
-
-  // Lock on list children
-  struct lock children_lock;
-
-  // Number of pages with mapping to this frame
-  int users;
-
-  // Lock on the whole struct frame. Idk yet whether we need it.
-  struct lock lock;
-
   // Used for "pinning" frame in RAM so it cannot be evicted when a syscall happens. Relates to accessing user memory.
   bool pinned;
+
+  // Lock on frame.
+  struct lock lock;
+
+  // Sharing
+
+  // Holds pages that map to this frame
+  struct list user_pages;
+  // Lock for list user_pages
+  struct lock user_pages_lock;
+};
+
+// Holds data about page that is mapped to frame. Is needed for sharing.
+struct user_page {
+  // Page directory
+  uint32_t *pd;
+  // User address
+  void *uaddr;
+  // Shared elem for adding to list users_list in frame and in swap_slot
+  struct list_elem elem;
 };
 
 void* frame_insert (void *kpage, uint32_t *pd, void *vaddr, int size);

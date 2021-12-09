@@ -11,31 +11,23 @@ Provides sector-based read and write access to block device. You will use this
 interface to access the swap partition as a block device.
 */
 
-
-#define SECTORS_PER_PAGE 8
-
-struct swap_slot{
-  uint32_t *pd;           //joint key
-  void *vaddr;            //joint key
-  block_sector_t sector;  //value
-  int size;               //size in sectors
-  struct hash_elem elem;  
-}; 
-
-//need not be a struct
-struct swap_table{
-  struct block *swap_block; 
-  struct bitmap *bitmap; //bitmap to determine free sectors in block
-  struct hash table;  //swap table recording swap slots for reading and writing
-};
-
 static struct swap_table swap_table;
 
 unsigned 
 swap_hash(const struct hash_elem *e, void *aux UNUSED)
 {
   struct frame *s = hash_entry(e, struct frame, elem);
-  return (unsigned) s -> pd ^ (unsigned) s -> uaddr;
+
+  lock_acquire(&s->user_pages_lock);
+
+  struct list_elem *elem = list_front(&s->user_pages);
+  struct user_page *user_page = list_entry(elem, struct user_page, elem);
+  void *uaddr = user_page->uaddr;
+  uint32_t *pd = user_page->pd;
+
+  lock_release(&s->user_pages_lock);
+
+  return (unsigned) pd ^ (unsigned) uaddr;
 }
 
 bool 
@@ -55,11 +47,13 @@ void init_swap_table(void){
 // could be void
 bool write_swap_slot(struct frame* frame){
   size_t start = bitmap_scan_and_flip(swap_table.bitmap, 0, frame -> size * SECTORS_PER_PAGE, 0);
-  if (start == BITMAP_ERROR)
-  {
+  if (start == BITMAP_ERROR) {
     return false; //or panic
-  } else{
+  } else {
     struct swap_slot *swap_slot = malloc(sizeof(swap_slot));
+    if (swap_slot == NULL) {
+      PANIC ("Swap slot allocation failed");
+    }
     for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) {
       ASSERT (swap_table.swap_block);
       block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
@@ -67,16 +61,31 @@ bool write_swap_slot(struct frame* frame){
     swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
     swap_slot -> pd = frame -> pd;
     swap_slot -> vaddr = frame -> uaddr;
+
+    lock_acquire(&frame->user_pages_lock);
+
+    // Moves user_pages from frame to swap slot
+    struct list_elem *e;
+    for (e = list_begin (&frame->user_pages); e != list_end (&frame->user_pages); e = list_remove (e)) {
+      list_push_back(&swap_slot->user_pages, e);
+    }
+
+    lock_release(&frame->user_pages_lock);
+
     hash_insert(&swap_table.table,&swap_slot->elem);
   }
   return true;
 }
 
 // could be void
-void read_swap_slot(uint32_t *pd, void* vadrr, void* kpage){ //*frame instead?
+void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   struct swap_slot dummy_s;
-  dummy_s.pd = pd;
-  dummy_s.vaddr = vadrr;
+  struct user_page user_page;
+
+  user_page.pd = pd;
+  user_page.uaddr = vaddr;
+  list_push_back(&dummy_s.user_pages, &user_page.elem);
+
   struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
   struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
   bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);

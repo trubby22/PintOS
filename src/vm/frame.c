@@ -13,12 +13,6 @@ static struct frametable frame_table;
 
 static void fix_queue(struct frame* new);
 
-struct frame_owner{
-  uint32_t *pd;
-  void *uaddr;
-  struct list_elem elem;
-};
-
 unsigned 
 frame_hash(const struct hash_elem *e, void *aux UNUSED)
 {
@@ -72,8 +66,13 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   else
   {
     frame = malloc(sizeof(struct frame));
-    ASSERT(frame);
+    if (frame == NULL) {
+      PANIC ("Malloc failed");
+    }
     frame -> address = kpage;
+    list_init(&frame->user_pages);
+    lock_init(&frame->lock);
+    lock_init(&frame->user_pages_lock);
     
     //fix circular queue
     fix_queue(frame);
@@ -82,10 +81,19 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 	}
 
   ASSERT (frame != NULL);
-  list_init(&frame -> children);
-  lock_init(&frame->lock);
-  lock_init(&frame->children_lock);
-  frame -> users = 1;
+
+  struct user_page *user_page = malloc(sizeof(struct user_page));
+  if (user_page == NULL) {
+    PANIC ("Malloc failed");
+  }
+
+  user_page->pd = pd;
+  user_page->uaddr = vaddr;
+
+  lock_acquire(&frame->user_pages_lock);
+  list_push_back(&frame->user_pages, &user_page->elem);
+  lock_release(&frame->user_pages_lock);
+
   frame -> size = size; //Should always be 1
   frame -> pd = pd;
   frame -> uaddr = vaddr;
@@ -110,9 +118,17 @@ fix_queue(struct frame* new)
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
 static struct frame *evict (struct frame *head){
+  // TODO: reduce duplication
   do {
-    void *uaddr = head -> uaddr;
-    uint32_t *pd = head -> pd;
+    lock_acquire(&head->user_pages_lock);
+
+    struct list_elem *elem = list_front(&head->user_pages);
+    struct user_page *user_page = list_entry(elem, struct user_page, elem);
+    void *uaddr = user_page->uaddr;
+    uint32_t *pd = user_page->pd;
+
+    lock_release(&head->user_pages_lock);
+
     bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
     if (save || head -> pinned){
       pagedir_reset(pd,uaddr);
@@ -121,9 +137,16 @@ static struct frame *evict (struct frame *head){
       break;
     }
   } while (true);
-  
-  void *uaddr = head -> uaddr;
-  uint32_t *pd = head -> pd;
+
+  lock_acquire(&head->user_pages_lock);
+
+  struct list_elem *elem = list_front(&head->user_pages);
+  struct user_page *user_page = list_entry(elem, struct user_page, elem);
+  void *uaddr = user_page->uaddr;
+  uint32_t *pd = user_page->pd;
+
+  lock_release(&head->user_pages_lock);
+
   bool accessed = pagedir_is_accessed(pd,uaddr);
   bool dirty = pagedir_is_dirty(pd,uaddr);
   bool save = (accessed || dirty);
@@ -133,11 +156,11 @@ static struct frame *evict (struct frame *head){
   }
 
 
-	//Allocate swap slot for page panic if none left
+	//Allocate swap slot for page; panic if none left
   bool success = write_swap_slot(head);
   if (!success)
   {
-    PANIC("at the distro");
+    PANIC("No swap slots left");
   }
 
   //Removes the refernce to this frame in the page table entry
