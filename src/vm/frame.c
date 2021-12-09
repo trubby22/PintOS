@@ -110,6 +110,8 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 
   user_page->pd = pd;
   user_page->uaddr = vaddr;
+  user_page->frame_or_swap_slot_ptr = frame;
+  user_page->used_in = FRAME;
 
   // Adds user_page to frame
   lock_acquire(&frame->user_pages_lock);
@@ -120,8 +122,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   lock_acquire(&all_user_pages_lock);
   list_push_back(&all_user_pages, &user_page->allelem);
   lock_release(&all_user_pages_lock);
-
-  frame->id = (uint32_t) pd ^ (uint32_t) vaddr;
+  
   frame -> size = size; //Should always be 1
 	return frame -> address;
 }
@@ -259,15 +260,11 @@ void remove_user_page (void *kpage, void *pd) {
 
       // Remove from frame or swap_slot
       list_remove(&user_page->elem);
-      // Remove swap slot if user_page was embedded in it and if no other processes have reference to that swap_slot. For now doesn't always properly delete if page is shared.
-      // If swap slot was embedded in frame, we don't have to do anything. The frame will simply be reused earlier in evict function.
-      struct swap_table *swap_table = get_swap_table();
+      // Remove swap slot if user_page was embedded in it and if no other processes have reference to that swap_slot.
+      // If user_page was embedded in frame, we don't have to do anything. The frame will simply be reused earlier in evict function.
+      if (user_page->used_in == SWAP) {
+        struct swap_slot *swap_slot = user_page->frame_or_swap_slot_ptr;
 
-      lock_acquire(&swap_table->lock);
-      struct swap_slot *swap_slot = lookup_swap_slot(user_page->uaddr, pd);
-      lock_release(&swap_table->lock);
-
-      if (swap_slot != NULL) {
         lock_acquire(&swap_slot->lock);
         if (list_size(&swap_slot->user_pages) == 0) {
           delete_swap_slot(swap_slot);

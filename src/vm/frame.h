@@ -7,6 +7,12 @@
 
 typedef void pagedir_generic_function (uint32_t *pd, const void *vpage);
 
+// Represents struct that user_page is pointing to
+enum used_in {
+  FRAME,
+  SWAP
+};
+
 /* A frame table maps a frame to a user page. */
 struct frametable
 {
@@ -21,8 +27,6 @@ struct frametable
 struct frame
 {
   void* address;           //key
-  // Calculated as (page directory) ^ (user address) of the first user_page from user_pages list
-  uint32_t id;
   // Not used
   int size;
 
@@ -42,6 +46,7 @@ struct frame
 };
 
 // Holds data about page that is mapped to frame. Is needed for sharing.
+// Note: due to extensive use of struct user_page it would be significantly better if lists holding user_pages were hashmaps instead with the following key: (uint32_t *pd, void *uaddr)
 struct user_page {
   // Page directory
   uint32_t *pd;
@@ -51,6 +56,10 @@ struct user_page {
   struct list_elem elem;
   // Elem used for adding to static list user_pages (defined in frame.c)
   struct list_elem allelem;
+  // Parent struct; either frame or swap
+  enum used_in used_in;
+  // Pointer to the struct to which user_page belongs, so either frame or swap_slot. Useful for sharing.
+  void *frame_or_swap_slot_ptr;
 };
 
 void* frame_insert (void *kpage, uint32_t *pd, void *vaddr, int size);

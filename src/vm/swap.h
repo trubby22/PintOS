@@ -9,8 +9,6 @@
 #define SECTORS_PER_PAGE 8
 
 struct swap_slot{
-  uint32_t id;
-
   block_sector_t sector;  //value
   int size;               //size in sectors
   struct hash_elem elem;  

@@ -11,6 +11,7 @@ Provides sector-based read and write access to block device. You will use this
 interface to access the swap partition as a block device.
 */
 
+// Note: swap_table could be a list instead of a hash table since hash_find is never called
 static struct swap_table swap_table;
 // Lock on swap_table
 static struct lock swap_table_lock;
@@ -18,11 +19,7 @@ static struct lock swap_table_lock;
 unsigned 
 swap_hash(const struct hash_elem *e, void *aux UNUSED)
 {
-  struct frame *s = hash_entry(e, struct frame, elem);
-
-  ASSERT (s->id);
-
-  return (unsigned) s->id;
+  return (unsigned) e;
 }
 
 bool 
@@ -75,10 +72,11 @@ bool write_swap_slot(struct frame* frame){
     // Moves user_pages from frame to swap slot preserving ordering
     while (!list_empty (&frame->user_pages)) {
       struct list_elem *e = list_pop_front (&frame->user_pages);
+      struct user_page *user_page = list_entry(e, struct user_page, elem);
+      user_page->frame_or_swap_slot_ptr = swap_slot;
+      user_page->used_in = SWAP;
       list_push_back(&swap_slot->user_pages, e);
     }
-
-    swap_slot->id = frame->id;
 
     lock_release(&swap_slot->lock);
     lock_release(&frame->user_pages_lock);
@@ -109,6 +107,9 @@ void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   // Moves user_pages from swap_slot to frame
   while (!list_empty (&swap_slot->user_pages)) {
     struct list_elem *e = list_pop_front (&swap_slot->user_pages);
+    struct user_page *user_page = list_entry(e, struct user_page, elem);
+    user_page->frame_or_swap_slot_ptr = frame;
+    user_page->used_in = FRAME;
     list_push_back(&frame->user_pages, e);
   }
 
@@ -124,16 +125,21 @@ void delete_swap_slot (struct swap_slot *swap_slot) {
   free(swap_slot);
 }
 
-// Gets swap_slot such that the frame that the data was copied from was initially allocated for process with page directory pd and this frame was mapped to user address upage. Does not work for sharing.
+// Gets swap_slot that upage interpreted under pd points to
 struct swap_slot *lookup_swap_slot (void *upage, void *pd) {
-  struct swap_slot dummy_s;
-  dummy_s.id = (uint32_t) pd ^ (uint32_t) upage;
+  struct list *all_user_pages = get_all_user_pages();
+  struct list_elem *e;
 
-  struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
-  if (elem != NULL) {
-    struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
-    return swap_slot;
+  for (e = list_begin (all_user_pages); e != list_end (all_user_pages); e = list_next (e)) {
+
+    struct user_page *user_page = list_entry (e, struct user_page, allelem);
+    if (user_page->pd == pd && user_page->uaddr == upage && user_page->used_in == SWAP) {
+
+      struct swap_slot *swap_slot = user_page->frame_or_swap_slot_ptr;
+      return swap_slot;
+    }
   }
+
   return NULL;
 }
 
