@@ -69,7 +69,7 @@ lookup_frame(void *kpage)
   return frame;
 }
 
-static struct frame *evict (struct list_elem *cuurent);
+static struct frame *evict (struct list_elem *current);
 
 /* Returns a new frame. Evicts if needed */
 void * 
@@ -196,6 +196,7 @@ static struct frame *evict (struct list_elem *current) {
 
   // Removes the refernce to this frame in the page table entry
   clear_pages_of_user_pages(user_pages);
+  lock_release(&frame->user_pages_lock);
 	return frame;
 }
 
