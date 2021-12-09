@@ -9,6 +9,8 @@
 #define SECTORS_PER_PAGE 8
 
 struct swap_slot{
+  uint32_t id;
+
   uint32_t *pd;           //joint key
   void *vaddr;            //joint key
   block_sector_t sector;  //value

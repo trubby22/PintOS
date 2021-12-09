@@ -94,9 +94,8 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   list_push_back(&frame->user_pages, &user_page->elem);
   lock_release(&frame->user_pages_lock);
 
+  frame->id = (uint32_t) pd ^ (uint32_t) vaddr;
   frame -> size = size; //Should always be 1
-  frame -> pd = pd;
-  frame -> uaddr = vaddr;
 	return frame -> address;
 }
 
@@ -129,7 +128,9 @@ static struct frame *evict (struct frame *head){
 
     lock_release(&head->user_pages_lock);
 
-    bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
+    bool accessed = pagedir_is_accessed(pd,uaddr);
+    bool dirty = pagedir_is_dirty(pd,uaddr);
+    bool save = (accessed || dirty);
     if (save || head -> pinned){
       pagedir_reset(pd,uaddr);
       head = head -> next;

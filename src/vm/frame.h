@@ -21,6 +21,8 @@ struct frame
 {
   void* address;           //key
 
+  uint32_t id;
+
   uint32_t *pd;            // page directory of the process that owns this frame
   void* uaddr;             // corresponding page of the proces that owns this frame
   int size;                // NOT USED

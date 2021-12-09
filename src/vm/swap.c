@@ -18,16 +18,9 @@ swap_hash(const struct hash_elem *e, void *aux UNUSED)
 {
   struct frame *s = hash_entry(e, struct frame, elem);
 
-  lock_acquire(&s->user_pages_lock);
+  ASSERT (s->id);
 
-  struct list_elem *elem = list_front(&s->user_pages);
-  struct user_page *user_page = list_entry(elem, struct user_page, elem);
-  void *uaddr = user_page->uaddr;
-  uint32_t *pd = user_page->pd;
-
-  lock_release(&s->user_pages_lock);
-
-  return (unsigned) pd ^ (unsigned) uaddr;
+  return (unsigned) s->id;
 }
 
 bool 
@@ -59,20 +52,24 @@ bool write_swap_slot(struct frame* frame){
       block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
     }
     swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
-    swap_slot -> pd = frame -> pd;
-    swap_slot -> vaddr = frame -> uaddr;
+    list_init(&swap_slot->user_pages);
+    lock_init(&swap_slot->lock);
 
     lock_acquire(&frame->user_pages_lock);
+    lock_acquire(&swap_slot->lock);
 
     // Moves user_pages from frame to swap slot
-    struct list_elem *e;
-    for (e = list_begin (&frame->user_pages); e != list_end (&frame->user_pages); e = list_remove (e)) {
+    while (!list_empty (&frame->user_pages)) {
+      struct list_elem *e = list_pop_front (&frame->user_pages);
       list_push_back(&swap_slot->user_pages, e);
     }
 
+    swap_slot->id = frame->id;
+
+    lock_release(&swap_slot->lock);
     lock_release(&frame->user_pages_lock);
 
-    hash_insert(&swap_table.table,&swap_slot->elem);
+    hash_insert(&swap_table.table, &swap_slot->elem);
   }
   return true;
 }
