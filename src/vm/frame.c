@@ -12,11 +12,7 @@
 
 static struct frametable frame_table;
 
-struct frame_owner{
-  uint32_t *pd;
-  void *uaddr;
-  struct list_elem elem;
-};
+static void fix_queue(struct frame* new);
 
 unsigned 
 frame_hash(const struct hash_elem *e, void *aux UNUSED)
@@ -71,7 +67,9 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   } else
   {
     frame = malloc(sizeof(struct frame));
-    ASSERT(frame);
+    if (frame == NULL) {
+      PANIC ("Malloc failed");
+    }
     frame -> address = kpage;
     if (!frame_table.current)
     {
@@ -79,19 +77,30 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
       frame_table.current = &frame->list_elem;
       
     }
+    list_init(&frame->user_pages);
+    lock_init(&frame->lock);
+    lock_init(&frame->user_pages_lock);
     
     list_insert(&frame_table.current, &frame->list_elem);
     hash_insert(&frame_table.table,&frame->elem);
 	}
 
   ASSERT (frame != NULL);
-  list_init(&frame -> children);
-  lock_init(&frame->lock);
-  lock_init(&frame->children_lock);
-  frame -> users = 1;
+
+  struct user_page *user_page = malloc(sizeof(struct user_page));
+  if (user_page == NULL) {
+    PANIC ("Malloc failed");
+  }
+
+  user_page->pd = pd;
+  user_page->uaddr = vaddr;
+
+  lock_acquire(&frame->user_pages_lock);
+  list_push_back(&frame->user_pages, &user_page->elem);
+  lock_release(&frame->user_pages_lock);
+
+  frame->id = (uint32_t) pd ^ (uint32_t) vaddr;
   frame -> size = size; //Should always be 1
-  frame -> pd = pd;
-  frame -> uaddr = vaddr;
 	return frame -> address;
 }
 
@@ -111,6 +120,7 @@ void free_frames(void* pages, size_t page_cnt){
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
 static struct frame *evict (struct list_elem *current){
+  // TODO: reduce duplication
   struct list_elem* next;
   void *uaddr;
   bool save;
@@ -118,9 +128,19 @@ static struct frame *evict (struct list_elem *current){
   struct frame *frame;
   do {
     frame = list_entry(current, struct frame, list_elem);
-    uaddr = frame -> uaddr;
-    pd = frame -> pd;
-    save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
+
+    lock_acquire(&frame->user_pages_lock);
+
+    struct list_elem *elem = list_front(&frame->user_pages);
+    struct user_page *user_page = list_entry(elem, struct user_page, elem);
+    void *uaddr = user_page->uaddr;
+    uint32_t *pd = user_page->pd;
+
+    lock_release(&frame->user_pages_lock);
+
+    bool accessed = pagedir_is_accessed(pd,uaddr);
+    bool dirty = pagedir_is_dirty(pd,uaddr);
+    bool save = (accessed || dirty);
     if (save || frame -> pinned){
       pagedir_reset(pd,uaddr);
       next = list_next(current);
