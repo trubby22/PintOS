@@ -17,5 +17,6 @@ struct mapped_file {
 void mmap_init(void);
 mapid_t mmap_add_mapping(int fd, int pgcnt, void *uaddr);
 bool mmap_remove_mapping(mapid_t mapid);
+void remove_all_mappings (void);
 
 #endif

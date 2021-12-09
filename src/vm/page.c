@@ -237,3 +237,16 @@ bool unpin_obj (void *uaddr, int size) {
   return success;
 }
 
+// Frees spt_pages of process
+void free_process_spt (void) {
+  struct thread *cur = thread_current();
+  struct spt *spt = &cur->spt;
+  struct list *pages = &spt->pages;
+
+  while (!list_empty (pages)) {
+    struct list_elem *e = list_pop_front (pages);
+    struct spt_page *spt_page = list_entry(e, struct spt_page, elem);
+    free(spt_page);
+  }
+}
+

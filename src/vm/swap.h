@@ -11,8 +11,6 @@
 struct swap_slot{
   uint32_t id;
 
-  uint32_t *pd;           //joint key
-  void *vaddr;            //joint key
   block_sector_t sector;  //value
   int size;               //size in sectors
   struct hash_elem elem;  
@@ -37,5 +35,8 @@ struct swap_table{
 void init_swap_table(void);
 void read_swap_slot(uint32_t *pd, void* vadrr, void* kpage);
 bool write_swap_slot(struct frame* frame);
+void delete_swap_slot (struct swap_slot *swap_slot);
+struct swap_slot *lookup_swap_slot (void *upage, void *pd);
+void remove_all_swap_slots (void);
 
 #endif

@@ -40,6 +40,8 @@
 #ifdef VM
 #include "vm/frame.h"
 #include "vm/swap.h"
+#include "vm/mmap.h"
+#include "vm/page.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -144,6 +146,13 @@ main (void)
   
   /* Run actions specified on kernel command line. */
   run_actions (argv);
+
+#ifdef VM
+  // Deallocate memory
+  remove_all_mappings();
+  remove_all_swap_slots();
+  remove_all_frames();
+#endif
 
   /* Finish up. */
   shutdown ();

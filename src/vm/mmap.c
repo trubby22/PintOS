@@ -77,3 +77,14 @@ mmap_remove_mapping (mapid_t mapid)
   }
   PANIC("Can't find mapid in mapped files list");
 }
+
+// Remove and free all mapped_file structs from static map_list
+void remove_all_mappings (void) {
+  while (!list_empty (&map_list)) {
+    struct list_elem *e = list_pop_front (&map_list);
+    ASSERT(e != NULL);
+    struct mapped_file *mapped_file = list_entry(e, struct mapped_file, map_list_elem);
+    ASSERT (mapped_file != NULL);
+    free(mapped_file);
+  }
+}

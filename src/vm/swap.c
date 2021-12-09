@@ -29,6 +29,11 @@ swap_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED
   return swap_hash(a,NULL) < swap_hash(b, NULL);
 }
 
+static void swap_destroy (struct hash_elem *e, void *aux) {
+  struct swap_slot *swap_slot = hash_entry(e, struct swap_slot, elem);
+  free(swap_slot);
+}
+
 
 void init_swap_table(void){
   swap_table.swap_block = block_get_role(BLOCK_SWAP);
@@ -78,18 +83,48 @@ bool write_swap_slot(struct frame* frame){
 void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   // For now works only for non-shared pages
   // TODO: make it work for shared pages too
-  struct swap_slot dummy_s;
-  dummy_s.id = (uint32_t) pd ^ (uint32_t) vaddr;
-
-  struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
-  struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
-  bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
+  struct swap_slot *swap_slot = lookup_swap_slot(vaddr, pd);
+  ASSERT (swap_slot != NULL);
   for (int i = 0; i < swap_slot -> size; i++){
     block_write(swap_table.swap_block, swap_slot -> sector + i, kpage + (i* BLOCK_SECTOR_SIZE));
   }
   block_write(swap_table.swap_block, swap_slot -> sector, kpage);
+  struct frame *frame = lookup_frame(kpage);
+  ASSERT (frame != NULL);
+
+  lock_acquire(&frame->user_pages_lock);
+
+  // Moves user_pages from swap_slot to frame
+  while (!list_empty (&swap_slot->user_pages)) {
+    struct list_elem *e = list_pop_front (&swap_slot->user_pages);
+    list_push_back(&frame->user_pages, e);
+  }
+
+  lock_release(&frame->user_pages_lock);
+
+  delete_swap_slot(swap_slot);
+}
+
+void delete_swap_slot (struct swap_slot *swap_slot) {
+  bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
   hash_delete(&swap_table.table, &swap_slot -> elem);
   free(swap_slot);
+}
+
+struct swap_slot *lookup_swap_slot (void *upage, void *pd) {
+  struct swap_slot dummy_s;
+  dummy_s.id = (uint32_t) pd ^ (uint32_t) upage;
+
+  struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
+  if (elem != NULL) {
+    struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);
+    return swap_slot;
+  }
+  return NULL;
+}
+
+void remove_all_swap_slots (void) {
+  hash_destroy(&swap_table.table, swap_destroy);
 }
 
 

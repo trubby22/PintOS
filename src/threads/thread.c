@@ -15,6 +15,7 @@
 #include "userprog/process.h"
 #include "userprog/syscall.h"
 #include "vm/page.h"
+#include "vm/mmap.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -588,11 +589,7 @@ thread_schedule_tail (struct thread *prev)
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread) 
     {
       ASSERT (prev != cur);
-      // TODO: ensure thread's stack is freed on exit
-      // palloc_free_multiple (prev, prev->page_count);
-      // palloc_free_page (prev); 
-
-      // free_process_resources(prev);
+      palloc_free_page (prev); 
     }
 }
 

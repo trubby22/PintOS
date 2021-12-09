@@ -53,6 +53,8 @@ struct user_page {
   void *uaddr;
   // Shared elem for adding to list users_list in frame and in swap_slot
   struct list_elem elem;
+  // Elem used for adding to static list user_pages (defined in frame.c)
+  struct list_elem allelem;
 };
 
 void* frame_insert (void *kpage, uint32_t *pd, void *vaddr, int size);
@@ -69,5 +71,9 @@ void unpin_frame (void *address);
 
 void reset_all_accessed_bits(void);
 void reset_accessed_bits (struct hash_elem *e, void *aux);
+
+void remove_user_page (void *kpage, void *pd);
+
+void remove_all_frames (void);
 
 #endif

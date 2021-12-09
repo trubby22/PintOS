@@ -56,8 +56,6 @@ struct spt_page {
 
   // Elem for adding to spt
   struct list_elem elem;
-  // Elem for adding spt_page to list of children in parent's frame
-  struct list_elem parent_elem;
 
   // Pointer to thread that owns spt_page
   // Possibly redundant
@@ -71,5 +69,7 @@ void share_pages (struct thread *parent, struct thread *child);
 
 bool pin_obj (void *uaddr, int size);
 bool unpin_obj (void *uaddr, int size);
+
+void free_process_spt (void);
 
 #endif
