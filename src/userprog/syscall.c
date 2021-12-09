@@ -120,12 +120,22 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer((uint32_t *) arg2_ptr);
   }
   
-  // Do we want to pin the pointers or the objects the pointers point to?
+  // Pin pointers
   pin_obj(arg1_ptr, sizeof(arg1_ptr));
   pin_obj(arg2_ptr, sizeof(arg2_ptr));
   pin_obj(arg3_ptr, sizeof(arg3_ptr));
 
+  // Pin objects that the pointers point to
+  pin_obj(*arg1_ptr, 1);
+  pin_obj(*arg2_ptr, 1);
+  pin_obj(*arg3_ptr, 1);
+
   f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
+
+  // Unpint
+  unpin_obj(*arg1_ptr, 1);
+  unpin_obj(*arg2_ptr, 1);
+  unpin_obj(*arg3_ptr, 1);
 
   unpin_obj(arg3_ptr, sizeof(arg3_ptr));
   unpin_obj(arg2_ptr, sizeof(arg2_ptr));

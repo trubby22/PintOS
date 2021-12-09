@@ -178,69 +178,6 @@ void share_pages (struct thread *parent, struct thread *child) {
 
 // TODO: method init_spt_page that sets up spt_page with default values
 
-// Frees all resources belonging to thread (stack, executable, memory-mapped files)
-// I need to make sure that the page where struct thread lives gets freed at the very end
-// Assuming stack has at least one page
-// TODO: make this function communicate with frame table
-// TODO: ensure I've locked everything properly
-void free_process_resources (struct thread *t) {
-  struct spt *spt = &t->spt;
-  struct list *pages = &spt->pages;
-
-  // TODO: we don't want to free pages which contain spt or pagedir because that would be pulling the rug from under ourselves
-  uint32_t spt_start_addr = (uint32_t) spt;
-  uint32_t spt_end_addr = spt_start_addr + sizeof(struct spt);
-
-  uint32_t pd_addr = t->pagedir;
-
-  struct frametable *frame_table = get_frame_table();
-
-  lock_acquire(&spt->pages_lock);
-
-  struct list_elem *e;
-
-  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
-      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
-      uint8_t *upage = spt_page->upage;
-
-      lock_acquire(&frame_table->lock);
-
-      void *kpage = pagedir_get_page(t->pagedir, upage);
-      struct frame *frame = lookup_frame(kpage);
-      int users = list_size(&frame->user_pages);
-
-      if (users == 1) {
-        // Non-shared frame; remove from frame table and free
-        struct hash_elem *removed_elem = hash_delete(&frame_table->table, &frame->elem);
-
-        ASSERT (removed_elem != NULL);
-
-        uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
-
-        palloc_free_page (kpage);
-
-      } else if (users > 1) {
-        // Shared frame; don't remove and don't free
-
-        ASSERT (!list_empty(&frame->user_pages));
-
-        struct list_elem *removed_elem = list_pop_back(&frame->user_pages);
-
-        struct user_page *user_page = list_entry(removed_elem, struct user_page, elem);
-
-        free(user_page);
-
-      } else {
-        PANIC ("0 frame users at reclamation");
-      }
-
-      lock_release(&frame_table->lock);
-    }
-  
-  lock_release(&spt->pages_lock);
-}
-
-
 // Assuming the address that we get in syscall handler is user address. If it turns out that it's a kernel address, pinning could be done in a simpler manner using frame table directly.
 // Pins frames holding object. Returns true if at least one page has been pinned, false otherwise.
 bool pin_obj (void *uaddr, int size) {

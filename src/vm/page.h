@@ -68,7 +68,6 @@ void spt_add_mmap_file (int fd, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
 void share_pages (struct thread *parent, struct thread *child);
-void free_process_resources (struct thread *t);
 
 bool pin_obj (void *uaddr, int size);
 bool unpin_obj (void *uaddr, int size);

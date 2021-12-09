@@ -76,12 +76,10 @@ bool write_swap_slot(struct frame* frame){
 
 // could be void
 void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
+  // For now works only for non-shared pages
+  // TODO: make it work for shared pages too
   struct swap_slot dummy_s;
-  struct user_page user_page;
-
-  user_page.pd = pd;
-  user_page.uaddr = vaddr;
-  list_push_back(&dummy_s.user_pages, &user_page.elem);
+  dummy_s.id = (uint32_t) pd ^ (uint32_t) vaddr;
 
   struct hash_elem *elem = hash_find(&swap_table.table, &dummy_s.elem);
   struct swap_slot *swap_slot = hash_entry(elem, struct swap_slot, elem);

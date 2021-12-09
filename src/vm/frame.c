@@ -133,8 +133,8 @@ static struct frame *evict (struct list_elem *current){
 
     struct list_elem *elem = list_front(&frame->user_pages);
     struct user_page *user_page = list_entry(elem, struct user_page, elem);
-    void *uaddr = user_page->uaddr;
-    uint32_t *pd = user_page->pd;
+    uaddr = user_page->uaddr;
+    pd = user_page->pd;
 
     lock_release(&frame->user_pages_lock);
 
