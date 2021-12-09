@@ -8,10 +8,9 @@
 #include "userprog/pagedir.h"
 #include "threads/pte.h"
 #include "vm/swap.h"
+#include <list.h>
 
 static struct frametable frame_table;
-
-static void fix_queue(struct frame* new);
 
 struct frame_owner{
   uint32_t *pd;
@@ -35,6 +34,7 @@ frame_less(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSE
 void 
 init_frame_table(void)
 {
+  list_init(&frame_table.list);
   hash_init(&frame_table.table, &frame_hash, &frame_less, NULL);
   lock_init(&frame_table.lock);
 }
@@ -58,7 +58,7 @@ lookup_frame(void *kpage)
   return frame;
 }
 
-static struct frame *evict (struct frame *head);
+static struct frame *evict (struct list_elem *cuurent);
 
 /* Returns a new frame. Evicts if needed */
 void * 
@@ -67,17 +67,20 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   struct frame *frame;
 	if (!kpage)
 	{
-    frame = evict (frame_table.head);
-  }
-  else
+    frame = evict (frame_table.current);
+  } else
   {
     frame = malloc(sizeof(struct frame));
     ASSERT(frame);
     frame -> address = kpage;
+    if (!frame_table.current)
+    {
+      list_push_front(&frame_table.list, &frame->list_elem);
+      frame_table.current = &frame->list_elem;
+      
+    }
     
-    //fix circular queue
-    fix_queue(frame);
-    //add to frame table
+    list_insert(&frame_table.current, &frame->list_elem);
     hash_insert(&frame_table.table,&frame->elem);
 	}
 
@@ -92,59 +95,55 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
 	return frame -> address;
 }
 
-static void 
-fix_queue(struct frame* new)
-{ 
-  if (!frame_table.head)
-  {
-    frame_table.head = new;
-    new -> next = new;
-    return;
-  }
-	struct frame *head = frame_table.head;
-  new->next = head->next;
-  head->next = new;
-  frame_table.head = new->next;
+//Causing page fault!
+void free_frames(void* pages, size_t page_cnt){
+ struct frame *dummy_f;
+ dummy_f -> address = pages;
+ struct hash_elem *elem = hash_delete(&frame_table.table, &dummy_f -> elem);
+ if (elem)
+ {
+   struct frame *f = hash_entry(elem, struct frame, elem);
+   list_remove(&f->list_elem);
+   free(f);
+ }
 }
 
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
-static struct frame *evict (struct frame *head){
+static struct frame *evict (struct list_elem *current){
+  struct list_elem* next;
+  void *uaddr;
+  bool save;
+  uint32_t *pd;
+  struct frame *frame;
   do {
-    void *uaddr = head -> uaddr;
-    uint32_t *pd = head -> pd;
-    bool save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
-    if (save || head -> pinned){
+    frame = list_entry(current, struct frame, list_elem);
+    uaddr = frame -> uaddr;
+    pd = frame -> pd;
+    save = pagedir_is_accessed(pd,uaddr) || pagedir_is_dirty(pd,uaddr);
+    if (save || frame -> pinned){
       pagedir_reset(pd,uaddr);
-      head = head -> next;
+      next = list_next(current);
+      if (is_tail(next))
+      {
+        current = list_front(&frame_table.list);
+      } else{
+        current = next;
+      }
+      frame_table.current = current;
     } else{
       break;
     }
   } while (true);
   
-  void *uaddr = head -> uaddr;
-  uint32_t *pd = head -> pd;
-  bool accessed = pagedir_is_accessed(pd,uaddr);
-  bool dirty = pagedir_is_dirty(pd,uaddr);
-  bool save = (accessed || dirty);
-  if (save || head -> pinned){
-    pagedir_reset(pd,uaddr);
-    return evict(head->next);
-  }
-
-
 	//Allocate swap slot for page panic if none left
-  bool success = write_swap_slot(head);
-  if (!success)
-  {
-    PANIC("at the distro");
-  }
+  bool success = write_swap_slot(frame);
+  ASSERT(success);
 
   //Removes the refernce to this frame in the page table entry
+  //No it doesn't??
   pagedir_clear_page(pd, uaddr);
-  
-	frame_table.head = head -> next;
-	return head;
+	return frame;
 }
 
 struct frametable *get_frame_table (void) {

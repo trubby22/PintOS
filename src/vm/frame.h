@@ -10,8 +10,9 @@
 /* A frame table maps a frame to a user page. */
 struct frametable
 {
-  struct frame *head; //Head of circular queue, needed for eviction
-  struct hash table;
+  struct list list;   //List for cicular queue of elements
+  struct hash table;  //Hash table fot looking up elements
+  struct list_elem *current;
 
   // Might be too coarse-grained. Would be better to lock individual frames.
   struct lock lock;
@@ -28,7 +29,7 @@ struct frame
   int size;                // NOT USED
 
   struct hash_elem elem;   //Elem to be part of frame table
-  struct frame *next;      //Pointer to be part of circular queue for eviction
+  struct list_elem list_elem;
 
   // Possibly redundant; might have a list of struct pd_uaddr so as to be able to access only the pagedir and user address of each process that has access to frame
   struct list children;    // List of spts of child processes that the frame is shared with
@@ -53,6 +54,7 @@ struct frame *find_frame (void *address);
 void *get_frame (uint32_t *pd, void *vaddr);
 
 struct frametable *get_frame_table (void);
+void free_frames(void* pages, size_t page_cnt);
 
 void pin_frame (void *address);
 void unpin_frame (void *address);

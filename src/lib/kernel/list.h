@@ -123,6 +123,7 @@ struct list
                                  { &(NAME).head, NULL } }
 
 void list_init (struct list *);
+bool is_tail (struct list_elem *elem);
 
 /* List traversal. */
 struct list_elem *list_begin (struct list *);
