@@ -201,6 +201,7 @@ void pin_frame (void *address) {
 
 void unpin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
+  ASSERT (frame);
   frame -> pinned = false;
 }
 
