@@ -59,7 +59,6 @@ hash_less_fun_b (const struct hash_elem *a,
   return hash_hash_fun_b(a,NULL) < hash_hash_fun_b(b,NULL);
 }
 
-// TODO: have uniformity when acquireing filesystem_lock, i.e. either always call lock_acquire(&filesystem_lock) (the better option) or acquire_filesystem_lock()
 struct lock filesystem_lock;
 struct lock console_lock;
 
@@ -477,9 +476,8 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
     return -1;
   }
 
-  // TODO: don't search for file given fd in spt_add_mmap_file again
   // Save file's metadata in SPT. Used for lazy-loading.
-  spt_add_mmap_file (fd, addr);
+  spt_add_mmap_file (target_file, addr);
   lock_release(&filesystem_lock);
 
   // Store the mapping in the list

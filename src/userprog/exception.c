@@ -116,6 +116,7 @@ kill (struct intr_frame *f)
     }
 }
 
+// Checks whether fault_addr lies within spt_page. If yes, loads the relevant page into memory. Used for lazy-loading.
 static bool 
 check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) 
 {
@@ -123,12 +124,9 @@ check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr)
   fault_addr >= spt_page->upage && 
   fault_addr <= spt_page->upage + PGSIZE) 
   {
-
     acquire_filesystem_lock();
     // Loads missing page from file or executable
-    //ASSERT(spt_page->writable);
     bool success = load_page(spt_page->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
-    //PANIC("HERE: %d", success);
     release_filesystem_lock();
 
     if (success) {
@@ -142,31 +140,34 @@ check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr)
   return false;
 }
 
+// Go over list of process's pages using SPT and see whether fault_addr belongs to any of the pages that are scheduled to be lazy-loaded. If a page is found, laod it into memory.
 static bool
 attempt_load_pages(void *fault_addr)
 {
-   struct thread *t = thread_current();
-   struct spt *spt = &t->spt;
-   struct list *pages = &spt->pages;
-   ASSERT(pages);
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+  ASSERT(pages);
 
-   struct list_elem *e;
+  struct list_elem *e;
 
-   lock_acquire(&spt->pages_lock);
-   ASSERT(list_begin(pages));
-   ASSERT(list_end(pages));
-   for (e = list_begin(pages); e != list_end(pages); e = list_next(e))
-   {
-      struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
-      ASSERT(spt_page);
-      bool success = check_and_possibly_load_page(spt_page, fault_addr);
+  lock_acquire(&spt->pages_lock);
+  ASSERT(list_begin(pages));
+  ASSERT(list_end(pages));
 
-      if (success) {
-        lock_release(&spt->pages_lock);
-        return true;
-      }
+  for (e = list_begin(pages); e != list_end(pages); e = list_next(e)) {
+    struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+    ASSERT(spt_page);
+  
+    bool success = check_and_possibly_load_page(spt_page, fault_addr);
+    if (success) {
+      lock_release(&spt->pages_lock);
+      return true;
     }
-    return false;
+  }
+
+  lock_release(&spt->pages_lock);
+  return false;
 }
 
 /* Page fault handler.  This is a skeleton that must be filled in
@@ -211,18 +212,15 @@ page_fault (struct intr_frame *f)
 
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
+  if (not_present && user) {
+    bool success = attempt_load_pages(fault_addr);
 
-  if (not_present && user)
-  {
-     bool s = attempt_load_pages(fault_addr);
-     if (!s) 
-     {
-        lock_release(&(thread_current()->spt).pages_lock);
-     }
-      else {
-        return;
-      }
+    if (success) {
+      // Resumes normal execution since fault has been handled
+      return;
+    }
   }
+
   // Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
 
@@ -233,18 +231,15 @@ page_fault (struct intr_frame *f)
   if(is_user_vaddr(esp) && esp >= PHYS_BASE - STACK_LIMIT && 
   (fault_addr == esp || fault_addr == esp - 4 || fault_addr == esp - 28 || fault_addr == esp - 32)) 
   {
-     uint32_t new_count = thread_current()->page_count + 1;
-     thread_current()->page_count = new_count;
+    uint32_t new_count = thread_current()->page_count + 1;
+    thread_current()->page_count = new_count;
 
-   // Create new page
-   //   thread_current()->page_addr -= PGSIZE;
-     if (create_stack_page(&esp))
-     {
-        return;
-     }
+    // Create new page
+    if (create_stack_page(&esp)) {
+      return;
+    }
   }
 
-  // TODO: check if there was an attempt to write to read-only page
   /* To implement virtual memory, delete the rest of the function
     body, and replace it with code that brings in the page to
     which fault_addr refers. */

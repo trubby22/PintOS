@@ -5,7 +5,7 @@
 #include "threads/synch.h"
 #include <hash.h>
 
-// TODO: add a lock on struct frame
+typedef void pagedir_generic_function (uint32_t *pd, const void *vpage);
 
 /* A frame table maps a frame to a user page. */
 struct frametable
@@ -13,29 +13,25 @@ struct frametable
   struct list list;   //List for cicular queue of elements
   struct hash table;  //Hash table fot looking up elements
   struct list_elem *current;
-
   // Lock on frametable
   struct lock lock;
 };
 
+// Stores information about a frame
 struct frame
 {
   void* address;           //key
-
+  // Calculated as (page directory) ^ (user address) of the first user_page from user_pages list
   uint32_t id;
-
-  uint32_t *pd;            // page directory of the process that owns this frame
-  void* uaddr;             // corresponding page of the proces that owns this frame
-  int size;                // NOT USED
+  // Not used
+  int size;
 
   struct hash_elem elem;   //Elem to be part of frame table
+  // For putting frame in frametable.list
   struct list_elem list_elem;
 
   // Used for "pinning" frame in RAM so it cannot be evicted when a syscall happens. Relates to accessing user memory.
   bool pinned;
-
-  // Lock on frame.
-  struct lock lock;
 
   // Sharing
 
@@ -64,7 +60,8 @@ struct frame *find_frame (void *address);
 void *get_frame (uint32_t *pd, void *vaddr);
 
 struct frametable *get_frame_table (void);
-void free_frames(void* pages, size_t page_cnt);
+struct list *get_all_user_pages (void);
+struct lock *get_all_user_pages_lock (void);
 
 void pin_frame (void *address);
 void unpin_frame (void *address);
@@ -73,7 +70,7 @@ void reset_all_accessed_bits(void);
 void reset_accessed_bits (struct hash_elem *e, void *aux);
 
 void remove_user_page (void *kpage, void *pd);
-
 void remove_all_frames (void);
+void free_frames(void* pages, size_t page_cnt);
 
 #endif

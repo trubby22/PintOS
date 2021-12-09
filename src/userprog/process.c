@@ -24,8 +24,6 @@
 #include "vm/page.h"
 #include <bitmap.h>
 
-// TODO: change this file to implement our frame table
-
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static void *init_stack(struct list *args_list);
@@ -105,6 +103,7 @@ process_execute (const char *cmd_args)
   char file_name[strlen(fst_str) + 1];
   strlcpy(file_name, fst_str, strlen(fst_str) + 1);
 
+  // Checks if executable exists
   acquire_filesystem_lock();
 
   struct file *file = filesys_open(file_name);
@@ -126,12 +125,12 @@ process_execute (const char *cmd_args)
   data_from_parent.args_list = &args_list;
   data_from_parent.parent = t;
 
-  // TODO: record the necessary information in the supplemental page table
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, &data_from_parent);
 
-  struct list_elem *e_2 = list_front(&thread_current()->children);
-  struct child *child = list_entry (e_2, struct child, elem);
+  // Adds a record of child in parent
+  struct list_elem *elem = list_front(&thread_current()->children);
+  struct child *child = list_entry (elem, struct child, elem);
 
   sema_down(&child->sema);
 
@@ -164,6 +163,7 @@ start_process (void *data_from_parent)
   }
   p->next_fd = 2;
 
+  // Initializes thread's files
   struct hash *files = (struct hash *) malloc(sizeof(struct hash));
   if (files == NULL) {
     PANIC("Failure mallocing struct hash in start_process");
@@ -171,7 +171,7 @@ start_process (void *data_from_parent)
   hash_init(files, hash_hash_fun, hash_less_fun, NULL);
   
   p->files = files;
-  p->pid = thread_current()->tid; //Would be nice to use next_tid somehow but its static 
+  p->pid = thread_current()->tid;
   hash_insert(&process_table, &p->elem);
   
   struct intr_frame if_;
@@ -183,16 +183,14 @@ start_process (void *data_from_parent)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  // TODO: Could do this simpler by just reading off thread_current()->name
-  struct list_elem *e = list_front(args_list);
-  struct arg *arg = list_entry (e, struct arg, elem);
-  const char *function_name = (const char *) arg->str;
-
   struct thread *t = thread_current();
+  const char *function_name = t->name;
 
+  // Gets spt_pages and mappings to frames from parent
   share_pages (parent, t);
 
   acquire_filesystem_lock();
+  // Loads metadata about eexecutable to SPT
   success = load (function_name, &if_.eip, &if_.esp);
   release_filesystem_lock();
 
@@ -490,6 +488,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   // file_close (file);
+  // Denies write since it's an executable and resets file's head to 0 because the executable will need to be read once more to actually load its pages into memory
   file_deny_write(file);
   file_seek (file, 0);
   return success;
@@ -556,7 +555,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 
    Return true if successful, false if a memory allocation error
    or disk read error occurs. */
-  // If is_executable = true, save data for executable, otherwise for a memory-mapped file
+  // Loads metatadata about a segment for either an executable or a file. Not used for stack pages.
 bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable, enum data_type type) 
@@ -595,7 +594,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         prev->read_bytes = prev->read_bytes > read_bytes ? prev->read_bytes : read_bytes;
         prev->zero_bytes = PGSIZE - prev->read_bytes;
       } else {
-        // TODO: remember to free spt_page
         struct spt_page *spt_page = (struct spt_page *) malloc(sizeof(struct spt_page));
         if (spt_page == NULL) {
           PANIC ("Failed to malloc struct spt_page in process.c/load");
@@ -611,8 +609,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt_page->type = type;
         spt_page->loaded = false;
         spt_page->file = file;
-
-        spt_page->thread = thread_current();
 
         lock_acquire(&spt->pages_lock);
         // Adds spt_page to pages list in spt
@@ -636,7 +632,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-// Same as load_segment but for loading pages. Used for lazy-loading.
+// Used for loading a single page from file into memory.
 bool
 load_page (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
@@ -652,15 +648,15 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
   uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
   
   if (!kpage)
-  {
-    
+  { 
+
     /* Get a new page of memory. */
     kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO, t->pagedir, upage);
     if (!kpage)
     {
       return false;
     }
-    
+
     /* Add the page to the process's address space. */
     if (!install_page (upage, kpage, writable)) 
     {
@@ -680,21 +676,20 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-
+// Creates an additional stack page and loads in memory. Used for stack growth.
 bool
 create_stack_page (void **esp)
 {
-  // lock_acquire(get_frame_table->lock);
-  // enum intr_level old_level = intr_disable ();
   uint8_t *kpage;
   bool success = false;
   struct thread *t = thread_current();
   struct spt *spt = &t->spt;
+  // User address of new stack page
   void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
 
   // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
   kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO | PAL_ASSERT, t -> pagedir, upage);
-  if(kpage == NULL) {
+  if (kpage == NULL) {
     return false;
   }
   success = install_page (upage, kpage, true);
@@ -703,9 +698,7 @@ create_stack_page (void **esp)
     spt_add_stack_page(upage);
     spt->stack_size += PGSIZE;
     *esp = (void *) PHYS_BASE - spt->stack_size;
-  }
-  else
-  {
+  } else {
     palloc_free_page (kpage);
   }
 

@@ -28,7 +28,7 @@ struct swap_table{
   struct bitmap *bitmap; //bitmap to determine free sectors in block
   struct hash table;  //swap table recording swap slots for reading and writing
 
-  // Lock on swap table
+  // Lock on hash table
   struct lock lock;
 };
 
@@ -38,5 +38,7 @@ bool write_swap_slot(struct frame* frame);
 void delete_swap_slot (struct swap_slot *swap_slot);
 struct swap_slot *lookup_swap_slot (void *upage, void *pd);
 void remove_all_swap_slots (void);
+struct swap_table *get_swap_table (void);
+struct lock *get_swap_table_lock (void);
 
 #endif

@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <hash.h>
 
-
 typedef int pid_t;
 #define CONSOLE_LIMIT 300
 
