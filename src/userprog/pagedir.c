@@ -166,7 +166,7 @@ bool pagedir_restore(uint32_t *pd, const void *uaddr){
     return NULL;
   }
   
-  *pte = pte_create_user (kpage, 0) | *pte | PTE_P;
+  *pte = pte_create_user (kpage, 0) | (*pte & PTE_FLAGS) | PTE_P;
   return (pagedir_get_page(pd, uaddr) != NULL);
   
 }
