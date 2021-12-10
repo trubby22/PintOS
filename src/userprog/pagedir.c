@@ -44,7 +44,7 @@ pagedir_destroy (uint32_t *pd)
         for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
           if (*pte & PTE_P) {
             const void *kpage = pte_get_page (*pte);
-            // Frees struct user_page associated with process (which might be either in frame or swap_slot)
+            // Frees user_page associated with process (which might be either in frame or swap_slot)
             remove_user_page(kpage, pd);
             palloc_free_page (kpage);
           }
@@ -146,19 +146,29 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   
   pte = lookup_page (pd, uaddr, false);
   if (pte != NULL && (*pte & PTE_P) != 0){
-    if (*pte & PTE_ADDR == 0)
-    {
-      //Page is in table but has no frame!
-      void* kpage = palloc_get_page_aux(PAL_USER | PAL_ZERO, pd, uaddr);
-      read_swap_slot(pd, uaddr, kpage);
-      *pte = pte_create_user (kpage, 0) | *pte;
-
-    }
-    
     return pte_get_page (*pte) + pg_ofs (uaddr); 
   }
   else
     return NULL;
+}
+
+bool pagedir_restore(uint32_t *pd, const void *uaddr){
+  uint32_t *pte = lookup_page (pd, uaddr, false);
+  if (!pte)
+  {
+    return NULL;
+  }
+  
+  void* kpage = palloc_get_page_aux(PAL_USER | PAL_ZERO, pd, uaddr);
+  bool s = read_swap_slot(pd, uaddr, kpage);
+  if (!s)
+  {
+    return NULL;
+  }
+  
+  *pte = pte_create_user (kpage, 0) | (*pte & PTE_FLAGS) | PTE_P;
+  return (pagedir_get_page(pd, uaddr) != NULL);
+  
 }
 
 /* Marks user virtual page UPAGE "not present" in page

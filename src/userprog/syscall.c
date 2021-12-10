@@ -22,8 +22,8 @@
 #define VOID_RETURN 0
 
 static void syscall_handler (struct intr_frame *);
-static void pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
-static void unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
+static bool pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
+static bool unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
 
 // Hash function where the key is simply the file descriptor
 // File descriptor will calculated with some sort of counter
@@ -126,13 +126,21 @@ syscall_handler (struct intr_frame *f)
   }
   
   // Pin frames holding arguments
-  pin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr); 
+  if (pin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr)) {
 
-  // The syscall itself
-  f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
+    // The syscall itself
+    f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
 
-  // Unpin frames holding arguments
-  unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr);
+    // Unpin frames holding arguments
+    if (!unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr)) 
+    {
+      syscall_exit(-1);
+      return;
+    }
+  }
+  else {
+    syscall_exit(-1);
+  }
   
 }
 
@@ -456,7 +464,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   // Ensure file is not empty
   if (size == 0) {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   // Calculate number of pages needed
@@ -469,13 +477,13 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - STACK_LIMIT) 
   {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   for (int i = 0; i < pgcnt; i++) {
     if (spt_contains_uaddr (addr + PGSIZE * i)) {
       release_filesystem_lock();
-      return -1;
+      return MAP_FAILED;
     }
   }
 
@@ -483,12 +491,8 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   spt_add_mmap_file (target_file, addr);
   lock_release(&filesystem_lock);
 
-  // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr);
 
-  // Don't allocate resources for file here because the file will be loaded lazily
-
-  return 0;
+  return mmap_add_mapping(fd, pgcnt, addr);
 }
 
 uint32_t
@@ -526,7 +530,7 @@ void release_filesystem_lock(void) {
 }
 
 // Pinning helper function
-static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr, pin_or_unpin_obj *pin_or_unpin_obj) {
+static bool pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr, pin_or_unpin_obj *pin_or_unpin_obj) {
   // Pin first argument (if appropriate)
   switch (syscall_num) {
     case SYS_EXIT:
@@ -542,7 +546,8 @@ static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg
       // Pin an int
       ASSERT (is_user_vaddr(arg1_ptr));
       if (!pin_or_unpin_obj(arg1_ptr, sizeof(int *))) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       break;
     case SYS_EXEC:
@@ -551,12 +556,14 @@ static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg
       // Pin a char *, and all the chars it points to up to 15 characters (because char * points to filename and filename is at most 14 characters long + '\0' character at the end)
       ASSERT (is_user_vaddr(arg1_ptr));
       if (!pin_or_unpin_obj(arg1_ptr, sizeof(char *))) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       char *char_ptr = (char *) *arg1_ptr;
       ASSERT (is_user_vaddr(char_ptr));
       if (!pin_or_unpin_obj(char_ptr, MAX_FILENAME_LENGTH + 1)) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       break;
   }
@@ -568,7 +575,8 @@ static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg
       // Pin an int 
       ASSERT (is_user_vaddr(arg2_ptr));
       if (!pin_or_unpin_obj(arg2_ptr, sizeof(int *))) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       break;
   }
@@ -580,29 +588,33 @@ static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg
       // Pin an int 
       ASSERT (is_user_vaddr(arg3_ptr));
       if (!pin_or_unpin_obj(arg3_ptr, sizeof(int *))) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       int size = *arg3_ptr;
       // Pin char * and individual chars. Length of chars is determined by size.
       ASSERT (is_user_vaddr(arg2_ptr));
       if (!pin_or_unpin_obj(arg2_ptr, sizeof(char *))) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       char *char_ptr = (char *) *arg2_ptr;
       ASSERT (is_user_vaddr(char_ptr));
       if (!pin_or_unpin_obj(char_ptr, size + 1)) {
-        PANIC ("No frames were pinned / unpinned");
+        //PANIC ("No frames were pinned / unpinned");
+        return false;
       }
       break;
   }
+  return true;
 }
 
 // Pinning
-static void pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
-  pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, pin_obj);
+static bool pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
+  return pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, pin_obj);
 }
 
 // Unpinning
-static void unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
-  pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, unpin_obj);
+static bool unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
+  return pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, unpin_obj);
 }
