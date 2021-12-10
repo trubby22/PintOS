@@ -15,6 +15,30 @@
 
 static bool pin_or_unpin_obj (void *uaddr, int size, pin_or_unpin_frame *);
 
+bool
+spt_contains_uaddr(void *upage)
+{
+  struct thread *t = thread_current();
+  struct spt *spt = &t->spt;
+  struct list *pages = &spt->pages;
+
+  struct list_elem *e;
+
+  lock_acquire(&spt->pages_lock);
+
+  // Searches pages for the one we want to remove
+  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
+    struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+
+    if (spt_page->upage == upage) {
+      lock_release(&spt->pages_lock);
+      return true;
+    }
+  }
+  lock_release(&spt->pages_lock);
+  return false;
+}
+
 // Adds an entry in SPT when a file is mapped to memory
 // This function must be called after filesystem_lock has been acquired
 void spt_add_mmap_file (struct file *file, void *upage) {
