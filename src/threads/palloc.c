@@ -63,18 +63,21 @@ palloc_init (size_t user_page_limit)
 }
 
 // Pallocs new frame(s) and adds a record in the frame table
-void *palloc_get_multiple_aux 
-(enum palloc_flags flags, size_t page_cnt, uint32_t *pd, void *vaddr){
-  void* kpage = palloc_get_multiple(flags, page_cnt);
-  if (flags & PAL_USER){
-    frame_insert(kpage, pd, vaddr, page_cnt);
+void *
+palloc_get_multiple_aux (enum palloc_flags flags, size_t page_cnt, uint32_t *pd, void *vaddr)
+{
+  void *kpage = palloc_get_multiple(flags, page_cnt);
+  if (flags & PAL_USER)
+  {
+    kpage = frame_insert(kpage, pd, vaddr, page_cnt);
   }
   return kpage;
 }
 
 // Pallocs a single frame and adds a record in the frame table
-void *palloc_get_page_aux
-(enum palloc_flags flags,uint32_t *pd, void *vaddr){
+void *
+palloc_get_page_aux (enum palloc_flags flags, uint32_t *pd, void *vaddr)
+{
   return palloc_get_multiple_aux(flags, 1, pd, vaddr);
 }
 

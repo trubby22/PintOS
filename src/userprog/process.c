@@ -648,8 +648,7 @@ load_page (struct file *file, off_t ofs, uint8_t *upage,
   uint8_t *kpage = pagedir_get_page (t->pagedir, upage);
   
   if (!kpage)
-  { 
-
+  {
     /* Get a new page of memory. */
     kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO, t->pagedir, upage);
     if (!kpage)
@@ -688,9 +687,9 @@ create_stack_page (void **esp)
   void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
 
   // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
-  kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO | PAL_ASSERT, t -> pagedir, upage);
-  if (kpage == NULL) {
-    return false;
+  kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO, t->pagedir, upage);
+  if (!kpage) {
+    PANIC("Failed to allocate page for stack");
   }
   success = install_page (upage, kpage, true);
   
@@ -700,6 +699,7 @@ create_stack_page (void **esp)
     *esp = (void *) PHYS_BASE - spt->stack_size;
   } else {
     palloc_free_page (kpage);
+    PANIC("Failed to install stack page");
   }
 
   return success;
@@ -811,8 +811,7 @@ static void *init_stack(struct list *args_list) {
   sp = (uint32_t) ret_addr;
 
   // hex_dump (0, sp, (PHYS_BASE - (uint32_t) sp), true);
-
-  return (void *) sp;
+  return (void *)sp;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

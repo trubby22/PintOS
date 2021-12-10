@@ -245,7 +245,15 @@ lock_held_by_current_thread (const struct lock *lock)
 
   return lock->holder == thread_current ();
 }
-
+
+void
+lock_acquire_if_not_held(const struct lock *lock)
+{
+  if (lock_held_by_current_thread(lock))
+    return;
+  lock_acquire(lock);
+}
+
 /* One semaphore in a list. */
 struct semaphore_elem 
   {

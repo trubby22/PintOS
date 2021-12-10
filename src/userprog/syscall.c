@@ -20,7 +20,6 @@
 #include <syscall-nr.h>
 
 #define VOID_RETURN 0
-#define MAX_STACK_SIZE 0x100000
 
 static void syscall_handler (struct intr_frame *);
 
@@ -473,7 +472,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
 
   void *maxaddr = addr + PGSIZE * pgcnt;
 
-  if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - MAX_STACK_SIZE) 
+  if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - STACK_LIMIT) 
   {
     lock_release(&filesystem_lock);
     return -1;

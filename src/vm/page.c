@@ -145,14 +145,14 @@ void share_pages (struct thread *parent, struct thread *child) {
 
     // Stack pages are not shared; if parent and child have different executables, don't copy metadata about it
     if (parent_spt_page->type == STACK ||
-    !same_executable && parent_spt_page->type == EXECUTABLE) {
+    (!same_executable && parent_spt_page->type == EXECUTABLE)) {
       continue;
     }
 
     struct spt_page *child_spt_page = cpy_spt_page(parent_spt_page);
 
     lock_acquire(&spt_child->pages_lock);
-    list_push_back(&child_pages, child_spt_page);
+    list_push_back(child_pages, &child_spt_page->elem);
     lock_release(&spt_child->pages_lock);
 
     struct frametable *frame_table = get_frame_table();
