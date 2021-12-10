@@ -146,10 +146,8 @@ palloc_free_multiple (void *pages, size_t page_cnt)
 
   if (page_from_pool (&kernel_pool, pages))
     pool = &kernel_pool;
-  else if (page_from_pool (&user_pool, pages)){
+  else if (page_from_pool (&user_pool, pages))
     pool = &user_pool;
-    //free_frames(pages, page_cnt);
-  }
   else
     NOT_REACHED ();
 
