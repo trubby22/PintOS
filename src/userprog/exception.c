@@ -120,24 +120,15 @@ kill (struct intr_frame *f)
 static bool 
 check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) 
 {
-  if (!spt_page->loaded && 
-  fault_addr >= spt_page->upage && 
-  fault_addr <= spt_page->upage + PGSIZE) 
-  {
-    acquire_filesystem_lock();
-    // Loads missing page from file or executable
-    bool success = load_page(spt_page->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
-    release_filesystem_lock();
+  if (spt_page->loaded || fault_addr < spt_page->upage || fault_addr > spt_page->upage + PGSIZE)
+    return false;
 
-    if (success) {
-      // Sets page's loaded status
-      spt_page->loaded = true;
-    }
-    
-    return success;
-  }
+  acquire_filesystem_lock();
+  // Loads missing page from file or executable
+  spt_page->loaded = load_page(spt_page->file, spt_page->ofs, spt_page->upage, spt_page->read_bytes, spt_page->zero_bytes, spt_page->writable);
+  release_filesystem_lock();
   
-  return false;
+  return true;
 }
 
 // Go over list of process's pages using SPT and see whether fault_addr belongs to any of the pages that are scheduled to be lazy-loaded. If a page is found, laod it into memory.
@@ -154,18 +145,17 @@ attempt_load_pages(void *fault_addr)
   lock_acquire(&spt->pages_lock);
   ASSERT(list_begin(pages));
   ASSERT(list_end(pages));
-
-  for (e = list_begin(pages); e != list_end(pages); e = list_next(e)) {
+  for (e = list_begin(pages); e != list_end(pages); e = list_next(e))
+  {
     struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
     ASSERT(spt_page);
-  
-    bool success = check_and_possibly_load_page(spt_page, fault_addr);
-    if (success) {
+
+    if (check_and_possibly_load_page(spt_page, fault_addr)) 
+    {
       lock_release(&spt->pages_lock);
       return true;
     }
   }
-
   lock_release(&spt->pages_lock);
   return false;
 }
@@ -184,7 +174,7 @@ attempt_load_pages(void *fault_addr)
 static void
 page_fault (struct intr_frame *f) 
 {
-  bool not_present;  /* True: not-present page, false: writing r/o page. */
+  bool present;      /* True: writing r/o page, false: not-present page. */
   bool write;        /* True: access was write, false: access was read. */
   bool user;         /* True: access by user, false: access by kernel. */
   void *fault_addr;  /* Fault address. */
@@ -206,20 +196,14 @@ page_fault (struct intr_frame *f)
   page_fault_cnt++;
 
   /* Determine cause. */
-  not_present = (f->error_code & PF_P) == 0;
-  write = (f->error_code & PF_W) != 0;
-  user = (f->error_code & PF_U) != 0;
+  present = (f->error_code & PF_P) == PF_P;
+  write = (f->error_code & PF_W) == PF_W;
+  user = (f->error_code & PF_U) == PF_U;
 
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
-  if (not_present && user) {
-    bool success = attempt_load_pages(fault_addr);
-
-    if (success) {
-      // Resumes normal execution since fault has been handled
-      return;
-    }
-  }
+  if (user && attempt_load_pages(fault_addr))
+    return;
 
   // Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
@@ -228,11 +212,12 @@ page_fault (struct intr_frame *f)
 
   // Check if it's a stack addr
   // Since stack can only grow via PUSH or PUSHA assembly instruction, the fault_addr must be either 4 or 32 bytes below esp.
-  if(is_user_vaddr(esp) && esp >= PHYS_BASE - STACK_LIMIT && 
-  (fault_addr == esp || fault_addr == esp - 4 || fault_addr == esp - 28 || fault_addr == esp - 32)) 
+  if (
+    is_user_vaddr(esp) && 
+    esp >= PHYS_BASE - STACK_LIMIT && 
+    (fault_addr == esp || fault_addr == esp - 4 || fault_addr == esp - 28 || fault_addr == esp - 32)) 
   {
-    uint32_t new_count = thread_current()->page_count + 1;
-    thread_current()->page_count = new_count;
+    thread_current()->page_count++;
 
     // Create new page
     if (create_stack_page(&esp)) {
@@ -245,7 +230,7 @@ page_fault (struct intr_frame *f)
     which fault_addr refers. */
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
-          not_present ? "not present" : "rights violation",
+          !present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);

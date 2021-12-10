@@ -63,7 +63,8 @@ struct spt_page {
   struct list_elem elem;
 };
 
-void spt_add_mmap_file (struct file *file, void *upage);
+bool spt_contains_uaddr(void *upage);
+void spt_add_mmap_file(struct file *file, void *upage);
 bool spt_remove_mmap_file (void *upage);
 void spt_add_stack_page (void *upage);
 void share_pages (struct thread *parent, struct thread *child);

@@ -78,14 +78,15 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   struct frame *frame;
 	if (!kpage)
 	{
-    frame = evict (frame_table.current);
-  } else
+    frame = evict(frame_table.current);
+  }
+  else
   {
     frame = malloc(sizeof(struct frame));
     if (frame == NULL) {
       PANIC ("Malloc failed");
     }
-    frame -> address = kpage;
+    frame->address = kpage;
     if (!frame_table.current)
     {
       lock_acquire(&frame_table.lock);
@@ -97,11 +98,11 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
     list_init(&frame->user_pages);
     lock_init(&frame->user_pages_lock);
     
-    list_insert(&frame_table.current, &frame->list_elem);
+    list_insert(frame_table.current, &frame->list_elem);
     hash_insert(&frame_table.table,&frame->elem);
 	}
 
-  ASSERT (frame != NULL);
+  ASSERT (frame);
 
   struct user_page *user_page = malloc(sizeof(struct user_page));
   if (user_page == NULL) {
@@ -122,14 +123,16 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   lock_acquire(&all_user_pages_lock);
   list_push_back(&all_user_pages, &user_page->allelem);
   lock_release(&all_user_pages_lock);
-  
-  frame -> size = size; //Should always be 1
-	return frame -> address;
+
+  frame->size = size; // Should always be 1
+  return frame->address;
 }
 
 // Free page_cnt frames starting at address pages. Usually (maybe even always) page_cnt = 1
 // Causing page fault!
-void free_frames(void* pages, size_t page_cnt){
+void 
+free_frames(void* pages, size_t page_cnt)
+{
   struct frame *dummy_f;
   dummy_f -> address = pages;
 
@@ -151,14 +154,17 @@ void free_frames(void* pages, size_t page_cnt){
 
 /* Implements a second chance eviction algorithm
    will allocate a swap slot if needed */
-static struct frame *evict (struct list_elem *current) {
+static struct frame *
+evict (struct list_elem *current) 
+{
   struct list_elem* next;
   bool save;
   struct frame *frame;
   struct list *user_pages;
+
   do {
     frame = list_entry(current, struct frame, list_elem);
-
+    ASSERT(frame);
     lock_acquire(&frame->user_pages_lock);
 
     // If all processes that had access to frame have exited, return frame without writing it to swap
@@ -171,7 +177,8 @@ static struct frame *evict (struct list_elem *current) {
     user_pages = &frame->user_pages;
     bool save = at_least_one_accessed_or_dirty(user_pages);
 
-    if (save || frame -> pinned){
+    if (save || frame->pinned)
+    {
       reset_pagedirs_of_user_pages(user_pages);
 
       lock_acquire(&frame_table.lock);
@@ -186,19 +193,21 @@ static struct frame *evict (struct list_elem *current) {
       frame_table.current = current;
 
       lock_release(&frame_table.lock);
-    } else{
+      lock_release(&frame->user_pages_lock);
+    }
+    else
+    {
       break;
     }
   } while (true);
   
 	// Allocate swap slot for page panic if none left
-  bool success = write_swap_slot(frame);
-  ASSERT(success);
+  ASSERT(write_swap_slot(frame));
 
   // Removes the refernce to this frame in the page table entry
   clear_pages_of_user_pages(user_pages);
   lock_release(&frame->user_pages_lock);
-	return frame;
+  return frame;
 }
 
 struct frametable *get_frame_table (void) {

@@ -5,7 +5,7 @@
 #include "threads/synch.h"
 #include <hash.h>
 
-typedef void pagedir_generic_function (uint32_t *pd, const void *vpage);
+typedef void pagedir_generic_function (uint32_t *pd, void *vpage);
 
 // Represents struct that user_page is pointing to
 enum used_in {

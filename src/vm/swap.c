@@ -43,45 +43,46 @@ void init_swap_table(void){
 
 // Writes data from frame to swap slot. Mallocs a swap slot in the process.
 // could be void
-bool write_swap_slot(struct frame* frame){
+/* Must already hold frame's user pages lock */
+bool 
+write_swap_slot(struct frame* frame)
+{
   // Sets bits to 0
   size_t start = bitmap_scan_and_flip(swap_table.bitmap, 0, frame -> size * SECTORS_PER_PAGE, 0);
 
   if (start == BITMAP_ERROR) {
-    return false; //or panic
-  } else {
-    struct swap_slot *swap_slot = malloc(sizeof(swap_slot));
-    if (swap_slot == NULL) {
-      PANIC ("Swap slot allocation failed");
-    }
-
-    // Copies contents of frame to swap_slot
-    for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) {
-      ASSERT (swap_table.swap_block);
-      block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
-    }
-
-    swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
-    list_init(&swap_slot->user_pages);
-    lock_init(&swap_slot->lock);
-
-    lock_acquire(&frame->user_pages_lock);
-    lock_acquire(&swap_slot->lock);
-
-    // Moves user_pages from frame to swap slot preserving ordering
-    while (!list_empty (&frame->user_pages)) {
-      struct list_elem *e = list_pop_front (&frame->user_pages);
-      struct user_page *user_page = list_entry(e, struct user_page, elem);
-      user_page->frame_or_swap_slot_ptr = swap_slot;
-      user_page->used_in = SWAP;
-      list_push_back(&swap_slot->user_pages, e);
-    }
-
-    lock_release(&swap_slot->lock);
-    lock_release(&frame->user_pages_lock);
-
-    hash_insert(&swap_table.table, &swap_slot->elem);
+    PANIC("Failed to find available swap slot");
   }
+
+  struct swap_slot *swap_slot = malloc(sizeof(struct swap_slot));
+  if (swap_slot == NULL) {
+    PANIC ("Swap slot allocation failed");
+  }
+
+  // Copies contents of frame to swap_slot
+  for (int i = 0; i < frame -> size * SECTORS_PER_PAGE; i++) {
+    ASSERT (swap_table.swap_block);
+    block_write(swap_table.swap_block, start + i, frame -> address + (i * BLOCK_SECTOR_SIZE));
+  }
+
+  swap_slot -> size = frame -> size * SECTORS_PER_PAGE;
+  list_init(&swap_slot->user_pages);
+  lock_init(&swap_slot->lock);
+
+  lock_acquire(&swap_slot->lock);
+
+  // Moves user_pages from frame to swap slot preserving ordering
+  while (!list_empty (&frame->user_pages)) {
+    struct list_elem *e = list_pop_front (&frame->user_pages);
+    struct user_page *user_page = list_entry(e, struct user_page, elem);
+    user_page->frame_or_swap_slot_ptr = swap_slot;
+    user_page->used_in = SWAP;
+    list_push_back(&swap_slot->user_pages, e);
+  }
+
+  lock_release(&swap_slot->lock);
+
+  hash_insert(&swap_table.table, &swap_slot->elem);
   return true;
 }
 

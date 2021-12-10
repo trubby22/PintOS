@@ -471,10 +471,19 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (size % PGSIZE)
     pgcnt++;
 
-  if (addr < thread_current()->spt.exe_size + EXE_BASE) 
+  void *maxaddr = addr + PGSIZE * pgcnt;
+
+  if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - STACK_LIMIT) 
   {
     lock_release(&filesystem_lock);
     return -1;
+  }
+
+  for (int i = 0; i < pgcnt; i++) {
+    if (spt_contains_uaddr (addr + PGSIZE * i)) {
+      release_filesystem_lock();
+      return -1;
+    }
   }
 
   // Save file's metadata in SPT. Used for lazy-loading.
