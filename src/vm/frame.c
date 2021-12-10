@@ -125,6 +125,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   lock_release(&all_user_pages_lock);
 
   frame->size = size; // Should always be 1
+  frame->pinned = false;
   return frame->address;
 }
 
@@ -236,7 +237,10 @@ bool pin_frame (void *address) {
 bool unpin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
   if (frame && frame->pinned) {
-    frame -> pinned = false;
+    frame->pinned = false;
+    return true;
+  } else if (frame && !frame->pinned) {
+    // It might be the case that someone has already unpinned frame (e.g. when 2 addresses used in syscall are stored in the same frame)
     return true;
   }
   return false;
