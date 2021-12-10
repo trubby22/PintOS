@@ -686,7 +686,6 @@ create_stack_page (void **esp)
   // User address of new stack page
   void *upage = (void *) PHYS_BASE - spt->stack_size - PGSIZE;
 
-  // Will need to remove PAL_ASSERT flag later on and deal with the fact that we have no pages in RAM by evicting other pages.
   kpage = palloc_get_page_aux (PAL_USER | PAL_ZERO, t->pagedir, upage);
   if (!kpage) {
     PANIC("Failed to allocate page for stack");

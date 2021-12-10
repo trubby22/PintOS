@@ -12,6 +12,7 @@
 #include "lib/string.h"
 #include "userprog/pagedir.h"
 #include "vm/frame.h"
+#include "userprog/exception.h"
 
 static bool pin_or_unpin_obj (void *uaddr, int size, pin_or_unpin_frame *);
 
@@ -101,6 +102,7 @@ void spt_add_stack_page (void *upage) {
 
   spt_page->upage = upage;
   spt_page->type = STACK;
+  spt_page->loaded = false;
 
   lock_acquire(&spt->pages_lock);
   list_push_back(pages, &spt_page->elem);
@@ -195,11 +197,24 @@ void share_pages (struct thread *parent, struct thread *child) {
 
 // Pins frames holding object. Returns true if at least one page has been pinned, false otherwise. Used for user memory access in syscall handler.
 bool pin_obj (void *uaddr, int size) {
-  return pin_or_unpin_obj(uaddr, size, pin_frame);
+  int size_cpy = size;
+  void *uaddr_cpy = uaddr;
+  // Loads pages into memory if they have not been loaded yet and if the object does NOT live in stack (we can't load stack from file)
+  for (size_cpy; size_cpy > 0; size_cpy -= PGSIZE) {
+    attempt_load_pages(uaddr_cpy);
+    uaddr_cpy += PGSIZE;
+  }
+
+  ASSERT (is_user_vaddr(uaddr));
+  // Assuming the page is now either in frame or in swap, ensure it's in frame and pin this frame
+  bool success = pin_or_unpin_obj(uaddr, size, pin_frame);
+  return success;
 }
 
 bool unpin_obj (void *uaddr, int size) {
-  return pin_or_unpin_obj(uaddr, size, pin_frame);
+  ASSERT (is_user_vaddr(uaddr));
+  bool success = pin_or_unpin_obj(uaddr, size, unpin_frame);
+  return success;
 }
 
 // Helper function for pin_obj and unpin_obj
@@ -211,22 +226,36 @@ static bool pin_or_unpin_obj (void *uaddr, int size, pin_or_unpin_frame *pin_or_
   struct list_elem *e;
   bool success = false;
 
-  lock_acquire(&spt->pages_lock);
+  struct list *all_user_pages = get_all_user_pages();
+  struct lock *all_user_pages_lock = get_all_user_pages_lock();
 
-  for (e = list_begin (pages); e != list_end (pages); e = list_next (e)) {
-    struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
+  lock_acquire(all_user_pages_lock);
 
-    // Checks if object belongs to spt_page
-    if ((spt_page->upage <= uaddr && uaddr < spt_page->upage + PGSIZE) ||
-    (uaddr < spt_page->upage && spt_page->upage < uaddr + size) ||
-    (spt_page->upage <= uaddr + size && uaddr + size < spt_page->upage + PGSIZE)) {
-      void *kpage = pagedir_get_page(t->pagedir, spt_page->upage);
-      pin_or_unpin_frame(kpage);
-      success = true;
+  for (e = list_begin (all_user_pages); e != list_end (all_user_pages); e = list_next (e)) {
+    struct user_page *user_page = list_entry (e, struct user_page, allelem);
+
+    // Checks if object belongs to user_page
+    bool contains_start = user_page->uaddr <= uaddr && uaddr < user_page->uaddr + PGSIZE;
+    bool contains_mid = uaddr < user_page->uaddr && user_page->uaddr < uaddr + size;
+    bool contains_end = user_page->uaddr <= uaddr + size && uaddr + size < user_page->uaddr + PGSIZE;
+
+    if (contains_start || contains_mid || contains_end) {
+      struct frametable *frame_table = get_frame_table();
+      
+      // Need to acquire lock to make sure that frame is not evicted between the time that it's swapped in to RAM and the time that it's pinned.
+      lock_acquire(&frame_table->lock);
+
+      // For pinning: if page in swap_slot, first swap it back in to a frame in RAM. Regardless whether page was in swap or already in frame, we get back the kernel address of the frame.
+      // For unpinning it's assumed that the page is already in the frame in RAM since it's pinned. The frame cannot be removed during the syscall because the running process is one of its owners.
+      void *kpage = pagedir_get_page(t->pagedir, user_page->uaddr);
+      success = pin_or_unpin_frame(kpage);
+
+      lock_release(&frame_table->lock);
     }
   }
 
-  lock_release(&spt->pages_lock);
+  lock_release(all_user_pages_lock);
+
   return success;
 }
 
@@ -236,10 +265,14 @@ void free_process_spt (void) {
   struct spt *spt = &cur->spt;
   struct list *pages = &spt->pages;
 
+  lock_acquire(&spt->pages_lock);
+
   while (!list_empty (pages)) {
     struct list_elem *e = list_pop_front (pages);
     struct spt_page *spt_page = list_entry(e, struct spt_page, elem);
     free(spt_page);
   }
+
+  lock_release(&spt->pages_lock);
 }
 

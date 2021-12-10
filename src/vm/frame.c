@@ -125,6 +125,7 @@ frame_insert (void* kpage, uint32_t *pd, void *vaddr, int size)
   lock_release(&all_user_pages_lock);
 
   frame->size = size; // Should always be 1
+  frame->pinned = false;
   return frame->address;
 }
 
@@ -204,7 +205,7 @@ evict (struct list_elem *current)
 	// Allocate swap slot for page panic if none left
   ASSERT(write_swap_slot(frame));
 
-  // Removes the refernce to this frame in the page table entry
+  // Marks the frame as not present and makes the next access to it fault for each process that has access to the frame. However, preserves the refernce to this frame in the page tables.
   clear_pages_of_user_pages(user_pages);
   lock_release(&frame->user_pages_lock);
   return frame;
@@ -224,16 +225,25 @@ struct lock *get_all_user_pages_lock (void) {
 
 // Used for user memory access in syscall handler
 // idea: bring the frame at the passed address to RAM (unless it's already there) and make sure it stays there until unpin_frame is called
-void pin_frame (void *address) {
+bool pin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
-  ASSERT (frame);
-  frame->pinned = true;
+  if (frame) {
+    frame->pinned = true;
+    return true;
+  }
+  return false;
 }
 
-void unpin_frame (void *address) {
+bool unpin_frame (void *address) {
   struct frame *frame = lookup_frame(address);
-  ASSERT (frame);
-  frame -> pinned = false;
+  if (frame && frame->pinned) {
+    frame->pinned = false;
+    return true;
+  } else if (frame && !frame->pinned) {
+    // It might be the case that someone has already unpinned frame (e.g. when 2 addresses used in syscall are stored in the same frame)
+    return true;
+  }
+  return false;
 }
 
 // Resets accessed bits for one frame

@@ -72,8 +72,8 @@ struct frametable *get_frame_table (void);
 struct list *get_all_user_pages (void);
 struct lock *get_all_user_pages_lock (void);
 
-void pin_frame (void *address);
-void unpin_frame (void *address);
+bool pin_frame (void *address);
+bool unpin_frame (void *address);
 
 void reset_all_accessed_bits(void);
 void reset_accessed_bits (struct hash_elem *e, void *aux);

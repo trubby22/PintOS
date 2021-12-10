@@ -146,19 +146,29 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
   
   pte = lookup_page (pd, uaddr, false);
   if (pte != NULL && (*pte & PTE_P) != 0){
-    if (*pte & PTE_ADDR == 0)
-    {
-      //Page is in table but has no frame!
-      void* kpage = palloc_get_page_aux(PAL_USER | PAL_ZERO, pd, uaddr);
-      read_swap_slot(pd, uaddr, kpage);
-      *pte = pte_create_user (kpage, 0) | *pte;
-
-    }
-    
     return pte_get_page (*pte) + pg_ofs (uaddr); 
   }
   else
     return NULL;
+}
+
+bool pagedir_restore(uint32_t *pd, const void *uaddr){
+  uint32_t *pte = lookup_page (pd, uaddr, false);
+  if (!pte)
+  {
+    return NULL;
+  }
+  
+  void* kpage = palloc_get_page_aux(PAL_USER | PAL_ZERO, pd, uaddr);
+  bool s = read_swap_slot(pd, uaddr, kpage);
+  if (!s)
+  {
+    return NULL;
+  }
+  
+  *pte = pte_create_user (kpage, 0) | *pte | PTE_P;
+  return (pagedir_get_page(pd, uaddr) != NULL);
+  
 }
 
 /* Marks user virtual page UPAGE "not present" in page

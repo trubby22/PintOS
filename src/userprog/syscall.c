@@ -22,6 +22,8 @@
 #define VOID_RETURN 0
 
 static void syscall_handler (struct intr_frame *);
+static void pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
+static void unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr);
 
 // Hash function where the key is simply the file descriptor
 // File descriptor will calculated with some sort of counter
@@ -100,10 +102,14 @@ syscall_handler (struct intr_frame *f)
   uint32_t *sp = f->esp;
 
   validate_user_pointer((uint32_t *) sp);
-  pin_obj(sp, sizeof(sp));
 
   // Reads syscall number from stack
   int syscall_num = (int) *sp;
+
+  // In case wrong syscall_num has been passed, exit process
+  if (syscall_num < SYS_HALT || syscall_num > SYS_MUNMAP) {
+    syscall_exit(-1);
+  }
 
   // Reads pointers from stack
   void **arg1_ptr = (void *) sp + 4;
@@ -119,26 +125,14 @@ syscall_handler (struct intr_frame *f)
     validate_user_pointer((uint32_t *) arg2_ptr);
   }
   
-  // Pin pointers
-  pin_obj(arg1_ptr, sizeof(arg1_ptr));
-  pin_obj(arg2_ptr, sizeof(arg2_ptr));
-  pin_obj(arg3_ptr, sizeof(arg3_ptr));
+  // Pin frames holding arguments
+  pin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr); 
 
-  // Pin objects that the pointers point to
-  // pin_obj(*arg1_ptr, 1);
-  // pin_obj(*arg2_ptr, 1);
-  // pin_obj(*arg3_ptr, 1);
-
+  // The syscall itself
   f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
 
-  // Unpin
-  // unpin_obj(*arg3_ptr, 1);
-  // unpin_obj(*arg2_ptr, 1);
-  // unpin_obj(*arg1_ptr, 1);
-
-  unpin_obj(arg3_ptr, sizeof(arg3_ptr));
-  unpin_obj(arg2_ptr, sizeof(arg2_ptr));
-  unpin_obj(arg1_ptr, sizeof(arg1_ptr));
+  // Unpin frames holding arguments
+  unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr);
   
 }
 
@@ -309,7 +303,7 @@ open_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 uint32_t 
 create_userprog (void **arg1, void **arg2, void **arg3 UNUSED)
 {
-  const char *file = (const char *) (*((const char **) arg1));
+  const char *file = *((const char **) arg1);
   validate_user_pointer((uint32_t *) file);
   unsigned initial_size = *((unsigned *) arg2);
 
@@ -323,7 +317,7 @@ create_userprog (void **arg1, void **arg2, void **arg3 UNUSED)
 uint32_t 
 remove_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
-  const char *file = (const char *) (*((const char **) arg1));
+  const char *file = *((const char **) arg1);
   lock_acquire(&filesystem_lock);
   bool success = filesys_remove(file);
   lock_release(&filesystem_lock);
@@ -531,3 +525,84 @@ void release_filesystem_lock(void) {
   lock_release(&filesystem_lock);
 }
 
+// Pinning helper function
+static void pin_or_unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr, pin_or_unpin_obj *pin_or_unpin_obj) {
+  // Pin first argument (if appropriate)
+  switch (syscall_num) {
+    case SYS_EXIT:
+    case SYS_WAIT:
+    case SYS_FILESIZE:
+    case SYS_READ:
+    case SYS_WRITE:
+    case SYS_SEEK:
+    case SYS_TELL:
+    case SYS_CLOSE:
+    case SYS_MMAP:
+    case SYS_MUNMAP:
+      // Pin an int
+      ASSERT (is_user_vaddr(arg1_ptr));
+      if (!pin_or_unpin_obj(arg1_ptr, sizeof(int *))) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      break;
+    case SYS_EXEC:
+    case SYS_REMOVE:
+    case SYS_OPEN:
+      // Pin a char *, and all the chars it points to up to 15 characters (because char * points to filename and filename is at most 14 characters long + '\0' character at the end)
+      ASSERT (is_user_vaddr(arg1_ptr));
+      if (!pin_or_unpin_obj(arg1_ptr, sizeof(char *))) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      char *char_ptr = (char *) *arg1_ptr;
+      ASSERT (is_user_vaddr(char_ptr));
+      if (!pin_or_unpin_obj(char_ptr, MAX_FILENAME_LENGTH + 1)) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      break;
+  }
+
+  // Pin second argument (if it's an int)
+  switch (syscall_num) {
+    case SYS_CREATE:
+    case SYS_SEEK:
+      // Pin an int 
+      ASSERT (is_user_vaddr(arg2_ptr));
+      if (!pin_or_unpin_obj(arg2_ptr, sizeof(int *))) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      break;
+  }
+
+  // Pin second and third arguments for read and write (it's done in one switch-case statement because the third argument informs us how big the string in the second argument is)
+  switch (syscall_num) {
+    case SYS_READ:
+    case SYS_WRITE:
+      // Pin an int 
+      ASSERT (is_user_vaddr(arg3_ptr));
+      if (!pin_or_unpin_obj(arg3_ptr, sizeof(int *))) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      int size = *arg3_ptr;
+      // Pin char * and individual chars. Length of chars is determined by size.
+      ASSERT (is_user_vaddr(arg2_ptr));
+      if (!pin_or_unpin_obj(arg2_ptr, sizeof(char *))) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      char *char_ptr = (char *) *arg2_ptr;
+      ASSERT (is_user_vaddr(char_ptr));
+      if (!pin_or_unpin_obj(char_ptr, size + 1)) {
+        PANIC ("No frames were pinned / unpinned");
+      }
+      break;
+  }
+}
+
+// Pinning
+static void pin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
+  pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, pin_obj);
+}
+
+// Unpinning
+static void unpin_arguments (int syscall_num, void **arg1_ptr, void **arg2_ptr, void **arg3_ptr) {
+  pin_or_unpin_arguments(syscall_num, arg1_ptr, arg2_ptr, arg3_ptr, unpin_obj);
+}

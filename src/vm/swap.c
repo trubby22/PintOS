@@ -11,7 +11,7 @@ Provides sector-based read and write access to block device. You will use this
 interface to access the swap partition as a block device.
 */
 
-// Note: swap_table could be a list instead of a hash table since hash_find is never called
+// Note: swap_table would benefit from being a list instead of a hash table since hash_find is never called; so we're making the data structure more complex without using its advantages
 static struct swap_table swap_table;
 // Lock on swap_table
 static struct lock swap_table_lock;
@@ -32,7 +32,6 @@ static void swap_destroy (struct hash_elem *e, void *aux) {
   struct swap_slot *swap_slot = hash_entry(e, struct swap_slot, elem);
   free(swap_slot);
 }
-
 
 void init_swap_table(void){
   swap_table.swap_block = block_get_role(BLOCK_SWAP);
@@ -71,6 +70,7 @@ write_swap_slot(struct frame* frame)
   lock_init(&swap_slot->lock);
 
   lock_acquire(&swap_slot->lock);
+  lock_acquire(&frame->user_pages_lock);
 
   // Moves user_pages from frame to swap slot preserving ordering
   while (!list_empty (&frame->user_pages)) {
@@ -81,6 +81,7 @@ write_swap_slot(struct frame* frame)
     list_push_back(&swap_slot->user_pages, e);
   }
 
+  lock_release(&frame->user_pages_lock);
   lock_release(&swap_slot->lock);
 
   hash_insert(&swap_table.table, &swap_slot->elem);
@@ -89,11 +90,13 @@ write_swap_slot(struct frame* frame)
 
 // Writes data from swap slot to frame
 // could be void
-void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
+bool read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   // For now works only for non-shared pages
   struct swap_slot *swap_slot = lookup_swap_slot(vaddr, pd);
-  ASSERT (swap_slot != NULL);
-
+  if (swap_slot == NULL)
+  {
+    return false;
+  }
   // Copies data from swap_slot to frame
   for (int i = 0; i < swap_slot -> size; i++){
     block_write(swap_table.swap_block, swap_slot -> sector + i, kpage + (i* BLOCK_SECTOR_SIZE));
@@ -103,6 +106,7 @@ void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   struct frame *frame = lookup_frame(kpage);
   ASSERT (frame != NULL);
 
+  lock_acquire(&swap_slot->lock);
   lock_acquire(&frame->user_pages_lock);
 
   // Moves user_pages from swap_slot to frame
@@ -115,6 +119,7 @@ void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   }
 
   lock_release(&frame->user_pages_lock);
+  lock_release(&swap_slot->lock);
 
   delete_swap_slot(swap_slot);
 }

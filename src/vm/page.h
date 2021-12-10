@@ -13,7 +13,7 @@
 #define EXE_BASE 0x08048000
 
 // Used in pinning
-typedef void pin_or_unpin_frame (void *address);
+typedef bool pin_or_unpin_frame (void *address);
 
 // Represents type of data a page holds
 enum data_type {

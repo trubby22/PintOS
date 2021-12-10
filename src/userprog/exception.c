@@ -11,6 +11,7 @@
 #include "vm/page.h"
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
+#include "userprog/pagedir.h"
 #include "lib/user/syscall.h"
 
 /* Number of page faults processed. */
@@ -120,7 +121,13 @@ kill (struct intr_frame *f)
 static bool 
 check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr) 
 {
-  if (spt_page->loaded || fault_addr < spt_page->upage || fault_addr > spt_page->upage + PGSIZE)
+  bool loaded = spt_page->loaded;
+  // Checks whether fault_addr lies in spt_page
+  bool too_low = fault_addr < spt_page->upage;
+  bool too_high = fault_addr > spt_page->upage + PGSIZE;
+  bool stack = spt_page->type == STACK;
+
+  if (loaded || too_low || too_high || stack)
     return false;
 
   acquire_filesystem_lock();
@@ -132,7 +139,7 @@ check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr)
 }
 
 // Go over list of process's pages using SPT and see whether fault_addr belongs to any of the pages that are scheduled to be lazy-loaded. If a page is found, laod it into memory.
-static bool
+bool
 attempt_load_pages(void *fault_addr)
 {
   struct thread *t = thread_current();
@@ -143,14 +150,19 @@ attempt_load_pages(void *fault_addr)
   struct list_elem *e;
 
   lock_acquire(&spt->pages_lock);
+
+  // Ensures list has been initalized
   ASSERT(list_begin(pages));
   ASSERT(list_end(pages));
+
   for (e = list_begin(pages); e != list_end(pages); e = list_next(e))
   {
     struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
     ASSERT(spt_page);
 
-    if (check_and_possibly_load_page(spt_page, fault_addr)) 
+    bool success = check_and_possibly_load_page(spt_page, fault_addr);
+
+    if (success) 
     {
       lock_release(&spt->pages_lock);
       return true;
@@ -202,9 +214,9 @@ page_fault (struct intr_frame *f)
 
   // Searches for fault_addr in SPT. If inside SPT, in most cases the fault is handled and process continues. Otherwise, terminte process.
   // Checks if fault_addr belongs to executable or memory-mapped file
-  if (user && attempt_load_pages(fault_addr))
+  if (!present && user && attempt_load_pages(fault_addr))
     return;
-
+  
   // Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
 
@@ -223,6 +235,15 @@ page_fault (struct intr_frame *f)
     if (create_stack_page(&esp)) {
       return;
     }
+  }
+
+    if (!present && user)
+  {
+     uint32_t *pd = thread_current()->pagedir;
+     if (pagedir_restore(pd,fault_addr))
+     {
+        return;
+     }  
   }
 
   /* To implement virtual memory, delete the rest of the function
