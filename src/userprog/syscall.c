@@ -483,12 +483,8 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   spt_add_mmap_file (target_file, addr);
   lock_release(&filesystem_lock);
 
-  // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr);
 
-  // Don't allocate resources for file here because the file will be loaded lazily
-
-  return 0;
+  return mmap_add_mapping(fd, pgcnt, addr);
 }
 
 uint32_t
