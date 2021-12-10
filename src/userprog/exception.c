@@ -11,6 +11,7 @@
 #include "vm/page.h"
 #include "lib/kernel/hash.h"
 #include "lib/kernel/list.h"
+#include "userprog/pagedir.h"
 #include "lib/user/syscall.h"
 
 /* Number of page faults processed. */
@@ -215,7 +216,7 @@ page_fault (struct intr_frame *f)
   // Checks if fault_addr belongs to executable or memory-mapped file
   if (!present && user && attempt_load_pages(fault_addr))
     return;
-
+  
   // Check that the user stack pointer appears to be in stack space:
   void *esp = f->esp;
 
@@ -234,6 +235,15 @@ page_fault (struct intr_frame *f)
     if (create_stack_page(&esp)) {
       return;
     }
+  }
+
+    if (!present && user)
+  {
+     uint32_t *pd = thread_current()->pagedir;
+     if (pagedir_restore(pd,fault_addr))
+     {
+        return;
+     }  
   }
 
   /* To implement virtual memory, delete the rest of the function

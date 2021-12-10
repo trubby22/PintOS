@@ -31,7 +31,7 @@ struct swap_table{
 };
 
 void init_swap_table(void);
-void read_swap_slot(uint32_t *pd, void* vadrr, void* kpage);
+bool read_swap_slot(uint32_t *pd, void* vadrr, void* kpage);
 bool write_swap_slot(struct frame* frame);
 void delete_swap_slot (struct swap_slot *swap_slot);
 struct swap_slot *lookup_swap_slot (void *upage, void *pd);
