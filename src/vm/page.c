@@ -177,7 +177,7 @@ void share_pages (struct thread *parent, struct thread *child) {
     user_page->pd = child->pagedir;
     user_page->uaddr = child_spt_page->upage;
     user_page->frame_or_swap_slot_ptr = shared_frame;
-    user_page->used_in = SWAP;
+    user_page->used_in = FRAME;
 
     struct list *all_user_pages = get_all_user_pages();
     struct lock *all_user_pages_lock = get_all_user_pages_lock();

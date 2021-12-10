@@ -36,7 +36,7 @@ struct spt {
   struct lock pages_lock;
 };
 
-// Executable page
+// Page (stack, executable or file)
 struct spt_page {
   // Data type stored in page
   enum data_type type;
