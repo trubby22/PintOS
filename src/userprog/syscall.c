@@ -464,7 +464,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   // Ensure file is not empty
   if (size == 0) {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   // Calculate number of pages needed
@@ -477,13 +477,13 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - STACK_LIMIT) 
   {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   for (int i = 0; i < pgcnt; i++) {
     if (spt_contains_uaddr (addr + PGSIZE * i)) {
       release_filesystem_lock();
-      return -1;
+      return MAP_FAILED;
     }
   }
 
@@ -491,12 +491,8 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   spt_add_mmap_file (target_file, addr);
   lock_release(&filesystem_lock);
 
-  // Store the mapping in the list
-  mapid_t id = mmap_add_mapping(fd, pgcnt, addr);
 
-  // Don't allocate resources for file here because the file will be loaded lazily
-
-  return 0;
+  return mmap_add_mapping(fd, pgcnt, addr);
 }
 
 uint32_t
