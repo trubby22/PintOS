@@ -44,7 +44,7 @@ pagedir_destroy (uint32_t *pd)
         for (pte = pt; pte < pt + PGSIZE / sizeof *pte; pte++)
           if (*pte & PTE_P) {
             const void *kpage = pte_get_page (*pte);
-            // Frees user_page associated with process (which might be either in frame or swap_slot)
+            // Frees struct user_page associated with process (which might be either in frame or swap_slot)
             remove_user_page(kpage, pd);
             palloc_free_page (kpage);
           }
