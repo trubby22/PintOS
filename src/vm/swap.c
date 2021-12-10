@@ -90,11 +90,13 @@ write_swap_slot(struct frame* frame)
 
 // Writes data from swap slot to frame
 // could be void
-void read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
+bool read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
   // For now works only for non-shared pages
   struct swap_slot *swap_slot = lookup_swap_slot(vaddr, pd);
-  ASSERT (swap_slot != NULL);
-
+  if (swap_slot == NULL)
+  {
+    return false;
+  }
   // Copies data from swap_slot to frame
   for (int i = 0; i < swap_slot -> size; i++){
     block_write(swap_table.swap_block, swap_slot -> sector + i, kpage + (i* BLOCK_SECTOR_SIZE));
