@@ -464,7 +464,7 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   // Ensure file is not empty
   if (size == 0) {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   // Calculate number of pages needed
@@ -477,13 +477,13 @@ mmap_userprog(void **arg1, void **arg2, void **arg3 UNUSED)
   if (addr < thread_current()->spt.exe_size + EXE_BASE || maxaddr >= PHYS_BASE - STACK_LIMIT) 
   {
     lock_release(&filesystem_lock);
-    return -1;
+    return MAP_FAILED;
   }
 
   for (int i = 0; i < pgcnt; i++) {
     if (spt_contains_uaddr (addr + PGSIZE * i)) {
       release_filesystem_lock();
-      return -1;
+      return MAP_FAILED;
     }
   }
 
