@@ -11,7 +11,7 @@ Provides sector-based read and write access to block device. You will use this
 interface to access the swap partition as a block device.
 */
 
-// Note: swap_table could be a list instead of a hash table since hash_find is never called
+// Note: swap_table would benefit from being a list instead of a hash table since hash_find is never called; so we're making the data structure more complex without using its advantages
 static struct swap_table swap_table;
 // Lock on swap_table
 static struct lock swap_table_lock;
@@ -32,7 +32,6 @@ static void swap_destroy (struct hash_elem *e, void *aux) {
   struct swap_slot *swap_slot = hash_entry(e, struct swap_slot, elem);
   free(swap_slot);
 }
-
 
 void init_swap_table(void){
   swap_table.swap_block = block_get_role(BLOCK_SWAP);

@@ -129,6 +129,7 @@ syscall_handler (struct intr_frame *f)
   // pin_obj(*arg2_ptr, 1);
   // pin_obj(*arg3_ptr, 1);
 
+  // The syscall itself
   f->eax = (*syscall_functions[syscall_num]) (arg1_ptr, arg2_ptr, arg3_ptr);
 
   // Unpin
@@ -309,7 +310,7 @@ open_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 uint32_t 
 create_userprog (void **arg1, void **arg2, void **arg3 UNUSED)
 {
-  const char *file = (const char *) (*((const char **) arg1));
+  const char *file = *((const char **) arg1);
   validate_user_pointer((uint32_t *) file);
   unsigned initial_size = *((unsigned *) arg2);
 
@@ -323,7 +324,7 @@ create_userprog (void **arg1, void **arg2, void **arg3 UNUSED)
 uint32_t 
 remove_userprog (void **arg1, void **arg2 UNUSED, void **arg3 UNUSED)
 {
-  const char *file = (const char *) (*((const char **) arg1));
+  const char *file = *((const char **) arg1);
   lock_acquire(&filesystem_lock);
   bool success = filesys_remove(file);
   lock_release(&filesystem_lock);

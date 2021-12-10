@@ -175,7 +175,7 @@ bool pin_obj (void *uaddr, int size) {
 }
 
 bool unpin_obj (void *uaddr, int size) {
-  return pin_or_unpin_obj(uaddr, size, pin_frame);
+  return pin_or_unpin_obj(uaddr, size, unpin_frame);
 }
 
 // Helper function for pin_obj and unpin_obj
@@ -212,10 +212,14 @@ void free_process_spt (void) {
   struct spt *spt = &cur->spt;
   struct list *pages = &spt->pages;
 
+  lock_acquire(&spt->pages_lock);
+
   while (!list_empty (pages)) {
     struct list_elem *e = list_pop_front (pages);
     struct spt_page *spt_page = list_entry(e, struct spt_page, elem);
     free(spt_page);
   }
+
+  lock_release(&spt->pages_lock);
 }
 
