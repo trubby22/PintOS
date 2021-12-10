@@ -112,7 +112,6 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-    uint32_t page_count;
     // Process's supplemental page table
     struct spt spt;
 #endif

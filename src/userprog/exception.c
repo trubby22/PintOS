@@ -160,9 +160,7 @@ attempt_load_pages(void *fault_addr)
     struct spt_page *spt_page = list_entry (e, struct spt_page, elem);
     ASSERT(spt_page);
 
-    bool success = check_and_possibly_load_page(spt_page, fault_addr);
-
-    if (success) 
+    if (check_and_possibly_load_page(spt_page, fault_addr)) 
     {
       lock_release(&spt->pages_lock);
       return true;
@@ -229,15 +227,13 @@ page_fault (struct intr_frame *f)
     esp >= PHYS_BASE - STACK_LIMIT && 
     (fault_addr == esp || fault_addr == esp - 4 || fault_addr == esp - 28 || fault_addr == esp - 32)) 
   {
-    thread_current()->page_count++;
-
     // Create new page
     if (create_stack_page(&esp)) {
       return;
     }
   }
 
-    if (!present && user)
+  if (!present && user)
   {
      uint32_t *pd = thread_current()->pagedir;
      if (pagedir_restore(pd,fault_addr))
