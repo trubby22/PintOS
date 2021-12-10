@@ -70,7 +70,6 @@ write_swap_slot(struct frame* frame)
   lock_init(&swap_slot->lock);
 
   lock_acquire(&swap_slot->lock);
-  lock_acquire(&frame->user_pages_lock);
 
   // Moves user_pages from frame to swap slot preserving ordering
   while (!list_empty (&frame->user_pages)) {
@@ -81,7 +80,6 @@ write_swap_slot(struct frame* frame)
     list_push_back(&swap_slot->user_pages, e);
   }
 
-  lock_release(&frame->user_pages_lock);
   lock_release(&swap_slot->lock);
 
   hash_insert(&swap_table.table, &swap_slot->elem);
@@ -120,13 +118,14 @@ bool read_swap_slot(uint32_t *pd, void* vaddr, void* kpage){ //*frame instead?
 
   lock_release(&frame->user_pages_lock);
   lock_release(&swap_slot->lock);
+  
 
-  delete_swap_slot(swap_slot);
+  //delete_swap_slot(swap_slot);
 }
 
 // Helper function. Used in read_swap_slot and when process exits to delete swap_slots where the process's data is (unless swap_slot has data from frame that is shared and other processes with access are still alive).
 void delete_swap_slot (struct swap_slot *swap_slot) {
-  bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0);
+  bitmap_set_multiple(swap_table.bitmap, swap_slot -> sector, swap_slot -> size, 0); //swap slot sector gets corrupted before here
   hash_delete(&swap_table.table, &swap_slot -> elem);
   free(swap_slot);
 }
