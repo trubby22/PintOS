@@ -6,6 +6,8 @@
 
 /* Process identifier. */
 typedef int pid_t;
+typedef bool pin_or_unpin_obj (void *uaddr, int size);
+
 #define PID_ERROR ((pid_t) -1)
 
 /* Map region identifier. */
@@ -18,6 +20,9 @@ typedef int mapid_t;
 /* Typical return values from main() and arguments to exit(). */
 #define EXIT_SUCCESS 0          /* Successful execution. */
 #define EXIT_FAILURE 1          /* Unsuccessful execution. */
+
+// As specified in the manual
+#define MAX_FILENAME_LENGTH 14 
 
 /* Tasks 2 and later. */
 void halt (void) NO_RETURN;

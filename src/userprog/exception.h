@@ -9,4 +9,6 @@
 void exception_init (void);
 void exception_print_stats (void);
 
+bool attempt_load_pages(void *fault_addr);
+
 #endif /* userprog/exception.h */

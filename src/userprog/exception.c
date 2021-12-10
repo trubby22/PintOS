@@ -132,7 +132,7 @@ check_and_possibly_load_page (struct spt_page *spt_page, void *fault_addr)
 }
 
 // Go over list of process's pages using SPT and see whether fault_addr belongs to any of the pages that are scheduled to be lazy-loaded. If a page is found, laod it into memory.
-static bool
+bool
 attempt_load_pages(void *fault_addr)
 {
   struct thread *t = thread_current();
